@@ -62,7 +62,16 @@ export const Home = () => {
 
   const fetchMapData = useCallback(async () => {
     try {
-      const res = await api.get('/locations/map-status');
+      let res;
+      try {
+        res = await api.get('/locations/map-status');
+      } catch (e) {
+        if (e.response?.status === 404) {
+          res = await api.get('/locations');
+        } else {
+          throw e;
+        }
+      }
       if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
         setLocations(res.data.data);
         if (res.data.summary) {

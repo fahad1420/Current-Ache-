@@ -12,7 +12,16 @@ export const RecentReportsTicker = ({ refreshTrigger = 0 }) => {
 
   const fetchReports = async () => {
     try {
-      const res = await api.get('/reports/recent?limit=8');
+      let res;
+      try {
+        res = await api.get('/reports/recent?limit=8');
+      } catch (e) {
+        if (e.response?.status === 404) {
+          res = await api.get('/reports?limit=8');
+        } else {
+          throw e;
+        }
+      }
       if (res.data?.success && Array.isArray(res.data.data)) {
         setReports(res.data.data);
       }

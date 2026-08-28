@@ -20,7 +20,7 @@ try {
   defaultLocations = [];
 }
 
-// Fallback in-memory reports if MongoDB is offline
+// Fallback in-memory reports if MongoDB is connecting
 let fallbackReports = [
   {
     _id: 'rep_init_1',
@@ -98,7 +98,6 @@ export async function handleApiRequest(req, res) {
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   );
-  // Ensure real-time status is NEVER cached by intermediate proxies
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
   if (req.method === 'OPTIONS') {
@@ -111,7 +110,10 @@ export async function handleApiRequest(req, res) {
   if (!pathname || pathname === '') pathname = '/';
 
   // Ensure DB connection
-  const db = await connectToDatabase();
+  let db = null;
+  try {
+    db = await connectToDatabase();
+  } catch (e) {}
 
   try {
     // 1. Health check
@@ -132,9 +134,9 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 2. Admin Authentication (POST /api/admin/login or POST /api/auth/login)
+    // 2. Admin Authentication (POST /api/admin, /api/admin/login, /api/auth, /api/auth/login)
     if (
-      (pathname === '/admin/login' || pathname === '/auth/login' || pathname === '/admin' || pathname === '/auth') &&
+      (pathname.startsWith('/admin') || pathname.startsWith('/auth')) &&
       req.method === 'POST'
     ) {
       const body = await parseRequestBody(req);
@@ -172,8 +174,8 @@ export async function handleApiRequest(req, res) {
       }
     }
 
-    // 3. Admin Reports Inspection (GET /api/admin/reports)
-    if (pathname === '/admin/reports' && req.method === 'GET') {
+    // 3. Admin Reports Inspection (GET /api/admin/reports or GET /api/admin?type=reports)
+    if (pathname.startsWith('/admin') && req.method === 'GET') {
       let reports = [];
       if (db) {
         try {
@@ -193,8 +195,8 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 4. Reports: Submit (POST /api/reports)
-    if ((pathname === '/reports' || pathname.startsWith('/reports')) && req.method === 'POST') {
+    // 4. Reports: Submit (POST /api/reports or POST /api/reports/index)
+    if (pathname.startsWith('/reports') && req.method === 'POST') {
       const body = await parseRequestBody(req);
       const {
         locationId,
@@ -353,7 +355,7 @@ export async function handleApiRequest(req, res) {
     }
 
     // 5. Reports: Recent ticker (GET /api/reports/recent or GET /api/reports)
-    if (pathname === '/reports/recent' || pathname === '/reports') {
+    if (pathname.startsWith('/reports') && req.method === 'GET') {
       let rawReports = [];
       if (db) {
         try {
@@ -452,8 +454,25 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 6. Locations: Map Status (GET /api/locations/map-status)
-    if (pathname === '/locations/map-status' || pathname === '/locations/map') {
+    // 6. Locations: Map Status & Search (GET /api/locations/map-status or GET /api/locations)
+    if (pathname.startsWith('/locations') && req.method === 'GET') {
+      const q = (urlObj.searchParams.get('q') || '').toLowerCase().trim();
+      if (q) {
+        const results = defaultLocations
+          .filter(
+            (loc) =>
+              loc.nameBn?.toLowerCase().includes(q) ||
+              loc.nameEn?.toLowerCase().includes(q) ||
+              loc.district?.toLowerCase().includes(q) ||
+              loc.districtBn?.includes(q) ||
+              loc.division?.toLowerCase().includes(q) ||
+              loc.divisionBn?.includes(q) ||
+              (loc.upazila && loc.upazila.toLowerCase().includes(q))
+          )
+          .slice(0, 15);
+        return res.status(200).json({ success: true, count: results.length, data: results });
+      }
+
       if (db) {
         try {
           const dbLocations = await LocationModel.find({ isActive: true }).lean();
@@ -494,79 +513,8 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 7. Locations: Search
-    if (pathname === '/locations/search') {
-      const q = (urlObj.searchParams.get('q') || '').toLowerCase().trim();
-      if (!q) {
-        return res.status(200).json({ success: true, count: 0, data: [] });
-      }
-
-      const results = defaultLocations
-        .filter(
-          (loc) =>
-            loc.nameBn?.toLowerCase().includes(q) ||
-            loc.nameEn?.toLowerCase().includes(q) ||
-            loc.district?.toLowerCase().includes(q) ||
-            loc.districtBn?.includes(q) ||
-            loc.division?.toLowerCase().includes(q) ||
-            loc.divisionBn?.includes(q) ||
-            (loc.upazila && loc.upazila.toLowerCase().includes(q))
-        )
-        .slice(0, 15);
-
-      return res.status(200).json({ success: true, count: results.length, data: results });
-    }
-
-    // 8. Locations: List with optional division filter
-    if (pathname === '/locations') {
-      const division = urlObj.searchParams.get('division');
-      let results = defaultLocations;
-      if (division && division !== 'All') {
-        results = defaultLocations.filter(
-          (loc) => loc.division?.toLowerCase() === division.toLowerCase()
-        );
-      }
-      return res.status(200).json({ success: true, count: results.length, data: results });
-    }
-
-    // 9. Locations: Single by ID or Slug
-    if (pathname.startsWith('/locations/') && !pathname.endsWith('/history')) {
-      const idOrSlug = pathname.replace('/locations/', '');
-      const matched = defaultLocations.find((l) => l._id === idOrSlug || l.slug === idOrSlug);
-      if (!matched) {
-        return res.status(404).json({ success: false, message: 'Location not found' });
-      }
-      return res.status(200).json({
-        success: true,
-        data: {
-          location: matched,
-          status: matched.status || 'insufficient_data',
-          recentReports: fallbackReports.filter((r) => r.locationId?._id === matched._id).slice(0, 5),
-        },
-      });
-    }
-
-    // 10. Locations: History
-    if (pathname.startsWith('/locations/') && pathname.endsWith('/history')) {
-      const idOrSlug = pathname.replace('/locations/', '').replace('/history', '');
-      const matched = defaultLocations.find((l) => l._id === idOrSlug || l.slug === idOrSlug);
-      return res.status(200).json({
-        success: true,
-        data: {
-          location: matched || { nameBn: idOrSlug, nameEn: idOrSlug },
-          periods: {
-            '24h': { outageCount: 0, totalOutageMinutes: 0, uptimePercentage: 100, outageEvents: [], restorationEvents: [] },
-            '48h': { outageCount: 0, totalOutageMinutes: 0, uptimePercentage: 100, outageEvents: [], restorationEvents: [] },
-            '7d': { outageCount: 0, totalOutageMinutes: 0, uptimePercentage: 100, outageEvents: [], restorationEvents: [] },
-            '30d': { outageCount: 0, totalOutageMinutes: 0, uptimePercentage: 100, outageEvents: [], restorationEvents: [] },
-            lifetime: { outageCount: 0, totalOutageMinutes: 0, uptimePercentage: 100, outageEvents: [], restorationEvents: [] },
-          },
-        },
-      });
-    }
-
-    // 11. Stats
-    if (pathname === '/stats') {
+    // 7. Stats
+    if (pathname.startsWith('/stats')) {
       const availCount = defaultLocations.filter((l) => l.status === 'available').length;
       const unavailCount = defaultLocations.filter((l) => l.status === 'unavailable').length;
 

@@ -22,7 +22,16 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (username, password) => {
-    const res = await api.post('/admin/login', { username, password });
+    let res;
+    try {
+      res = await api.post('/admin/login', { username, password });
+    } catch (err) {
+      if (err.response?.status === 404) {
+        res = await api.post('/admin', { username, password });
+      } else {
+        throw err;
+      }
+    }
     if (res.data?.success && res.data?.token) {
       localStorage.setItem('current_bd_admin_token', res.data.token);
       localStorage.setItem('current_bd_admin_user', JSON.stringify(res.data.admin));
