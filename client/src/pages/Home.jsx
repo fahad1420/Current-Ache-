@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Zap,
@@ -143,9 +143,37 @@ export const Home = () => {
           setGpsStatus('idle');
         }
       },
-      () => {
+      (error) => {
         setGpsStatus('denied');
-        addToast(t('gpsDeniedMsg') || 'আপনার ব্রাউজারে লোকেশন পারমিশন চালু নেই।', 'error');
+        if (error.code === 1) { // PERMISSION_DENIED
+          addToast(
+            isBn
+              ? 'আপনার ব্রাউজারে লোকেশন পারমিশন বন্ধ আছে। পারমিশন চালু করুন অথবা সার্চ বক্সে এলাকার নাম লিখুন।'
+              : 'Location permission is denied. Please allow location access or search manually.',
+            'error'
+          );
+        } else if (error.code === 2) { // POSITION_UNAVAILABLE
+          addToast(
+            isBn
+              ? 'আপনার ফোনের জিপিএস/লোকেশন বন্ধ আছে। সেটি চালু করুন অথবা সার্চ বক্সে এলাকার নাম লিখুন।'
+              : "Your phone's GPS/location is turned off. Please turn it on, or enter an area name in the search box.",
+            'error'
+          );
+        } else if (error.code === 3) { // TIMEOUT
+          addToast(
+            isBn
+              ? 'অবস্থান শনাক্তকরণে অতিরিক্ত সময় লেগেছে। পুনরায় চেষ্টা করুন অথবা সার্চ বক্সে এলাকার নাম লিখুন।'
+              : 'Location detection timed out. Please try again or search manually.',
+            'error'
+          );
+        } else {
+          addToast(
+            isBn
+              ? 'আপনার ফোনের জিপিএস/লোকেশন বন্ধ আছে। সেটি চালু করুন অথবা সার্চ বক্সে এলাকার নাম লিখুন।'
+              : "Your phone's GPS/location is turned off. Please turn it on, or enter an area name in the search box.",
+            'error'
+          );
+        }
       },
       { timeout: 12000, enableHighAccuracy: true }
     );

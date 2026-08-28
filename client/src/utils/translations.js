@@ -1,4 +1,4 @@
-﻿export const translations = {
+export const translations = {
   bn: {
     // Brand
     brandName: 'কারেন্ট আছে?',
@@ -20,21 +20,21 @@
     heroTitleHighlight: 'কারেন্ট আছে?',
     heroSubtitle: 'আপনার এলাকার বিদ্যুৎ পরিস্থিতি দেখুন এবং কমিউনিটি রিপোর্টে অংশ নিন।',
     searchPlaceholder: 'আপনার এলাকা, উপজেলা বা থানার নাম লিখুন...',
-    nearMeBtn: 'আমার কাছাকাছি',
+    nearMeBtn: 'আমার লোকেশন',
     locatingBtn: 'শনাক্ত করা হচ্ছে...',
     pressCmdK: '⌘ K',
 
     // GPS Status Banner
     gpsDetectedPrefix: '📍 আপনার অবস্থান:',
-    gpsNearArea: 'আপনার কাছাকাছি এলাকা',
+    gpsNearArea: 'আপনার লোকেশন',
     gpsAvailableStatus: '🟢 কারেন্ট আছে',
     gpsUnavailableStatus: '🔴 কারেন্ট নেই',
     gpsNoDataStatus: '⚪ পর্যাপ্ত রিপোর্ট নেই',
     reportNowBtn: 'রিপোর্ট দিন',
     gpsSearching: 'অবস্থান খোঁজা হচ্ছে...',
-    gpsDeniedMsg: 'আপনার অবস্থান অনুমতি পাওয়া যায়নি। সার্চ বক্সে এলাকার নাম লিখুন।',
-    gpsErrorMsg: 'অবস্থান শনাক্ত করা যায়নি। আবার চেষ্টা করুন।',
-    gpsNearSuccess: '📍 আপনার কাছাকাছি এলাকা শনাক্ত করা হয়েছে',
+    gpsDeniedMsg: 'আপনার ব্রাউজারে লোকেশন পারমিশন বন্ধ আছে। পারমিশন চালু করুন অথবা সার্চ বক্সে এলাকার নাম লিখুন।',
+    gpsErrorMsg: 'আপনার ফোনের জিপিএস/লোকেশন বন্ধ আছে। সেটি চালু করুন অথবা সার্চ বক্সে এলাকার নাম লিখুন।',
+    gpsNearSuccess: '📍 আপনার লোকেশন শনাক্ত করা হয়েছে',
 
     // Map HUD
     communityReportTitle: 'কমিউনিটি রিপোর্ট',
@@ -230,21 +230,21 @@
     heroTitleHighlight: 'Bangladesh',
     heroSubtitle: 'Check real-time power availability in your area and contribute community reports.',
     searchPlaceholder: 'Search your area, upazila, or thana...',
-    nearMeBtn: 'Near Me',
+    nearMeBtn: 'My Location',
     locatingBtn: 'Locating...',
     pressCmdK: '⌘ K',
 
     // GPS Status Banner
     gpsDetectedPrefix: '📍 Your Location:',
-    gpsNearArea: 'Nearest Area',
+    gpsNearArea: 'Your Location',
     gpsAvailableStatus: '🟢 Power Available',
     gpsUnavailableStatus: '🔴 Power Outage',
     gpsNoDataStatus: '⚪ Insufficient Data',
     reportNowBtn: 'Report Status',
     gpsSearching: 'Detecting your location...',
-    gpsDeniedMsg: 'Location access denied. Please use the search bar.',
-    gpsErrorMsg: 'Could not detect location. Please try again.',
-    gpsNearSuccess: '📍 Nearest area located',
+    gpsDeniedMsg: 'Location permission is denied. Please allow location access or search manually.',
+    gpsErrorMsg: "Your phone's GPS/location is turned off. Please turn it on, or enter an area name in the search box.",
+    gpsNearSuccess: '📍 Your location detected',
 
     // Map HUD
     communityReportTitle: 'Community Reports',

@@ -13,11 +13,11 @@ export const RecentReportsTicker = () => {
   const fetchReports = async () => {
     try {
       const res = await api.get('/reports/recent?limit=8');
-      if (res.data?.success) {
-        setReports(res.data.data || []);
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setReports(res.data.data);
       }
     } catch (err) {
-      console.error('Error fetching recent reports stream:', err);
+      console.warn('Error fetching recent reports stream:', err.message);
     } finally {
       setLoading(false);
     }
@@ -25,7 +25,7 @@ export const RecentReportsTicker = () => {
 
   useEffect(() => {
     fetchReports();
-    const interval = setInterval(fetchReports, 15000);
+    const interval = setInterval(fetchReports, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -62,11 +62,15 @@ export const RecentReportsTicker = () => {
 
       {reports.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-          {reports.map((report) => {
+          {reports.map((report, idx) => {
             const isAvailable = report.status === 'available';
+            const loc = report.location || report.locationId || {};
+            const locName = isBn ? (loc.nameBn || loc.nameEn || 'এলাকা') : (loc.nameEn || loc.nameBn || 'Area');
+            const distName = isBn ? (loc.districtBn || loc.district || '') : (loc.district || loc.districtBn || '');
+
             return (
               <div
-                key={report.id}
+                key={report.id || report._id || `rep_${idx}`}
                 className="p-2.5 bg-white dark:bg-[#111214] hover:bg-stone-50 dark:hover:bg-zinc-800/80 rounded-xl transition-colors border border-stone-200/80 dark:border-zinc-800/80 shadow-xs flex items-center justify-between group"
               >
                 <div className="flex items-center gap-2.5 overflow-hidden">
@@ -85,12 +89,10 @@ export const RecentReportsTicker = () => {
                   </div>
                   <div className="truncate">
                     <div className="font-bold text-xs text-stone-900 dark:text-zinc-100 truncate">
-                      {isBn ? report.location?.nameBn : report.location?.nameEn}
+                      {locName}
                     </div>
                     <div className="text-[10px] text-stone-400 dark:text-zinc-500 truncate">
-                      {isBn
-                        ? `${report.location?.districtBn || ''}`
-                        : `${report.location?.districtBn || ''}`}
+                      {distName ? (isBn ? `${distName} জেলা` : `${distName}`) : ''}
                     </div>
                   </div>
                 </div>
@@ -103,7 +105,7 @@ export const RecentReportsTicker = () => {
                         : 'bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300'
                     }`}
                   >
-                    {isAvailable ? t('statusYes') : t('statusNo')}
+                    {isAvailable ? (t('statusYes') || 'আছে') : (t('statusNo') || 'নেই')}
                   </span>
                   <div className="text-[9px] text-stone-400 dark:text-zinc-500 mt-0.5">
                     {getBanglaRelativeTime(report.createdAt)}
@@ -115,9 +117,10 @@ export const RecentReportsTicker = () => {
         </div>
       ) : (
         <div className="p-4 text-center text-xs text-stone-400 dark:text-zinc-500 bg-white dark:bg-[#111214] rounded-xl border border-stone-200 dark:border-zinc-800">
-          {t('noRecentReports')}
+          {t('noRecentReports') || 'এখনও কোনো লাইভ রিপোর্ট পাওয়া যায়নি।'}
         </div>
       )}
     </div>
   );
 };
+export default RecentReportsTicker;
