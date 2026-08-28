@@ -31,10 +31,11 @@ import { findNearestLocation } from '../utils/geolocation';
 import { toBn } from '../utils/banglaDigits';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
+import defaultLocations from '../data/bangladeshLocations.json';
 import api from '../services/api';
 
 export const Home = () => {
-  const [locations, setLocations] = useState([]);
+  const [locations, setLocations] = useState(defaultLocations);
   const [summary, setSummary] = useState({ total: 593, available: 0, unavailable: 0, insufficient: 593 });
   const [loading, setLoading] = useState(true);
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -682,68 +683,7 @@ export const Home = () => {
         <DisclaimerBox />
       </section>
 
-      {/* 3. Mobile Fixed Bottom Navigation Bar */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0a0a0b]/95 backdrop-blur-md border-t border-stone-200 dark:border-zinc-800 py-1.5 px-2 flex items-center justify-around text-[10px] font-bold text-stone-600 dark:text-zinc-400">
-        <Link
-          to="/"
-          className={`flex flex-col items-center gap-0.5 ${
-            locationPath.pathname === '/' ? 'text-orange-500 dark:text-orange-400' : ''
-          }`}
-        >
-          <Compass className="w-4 h-4" />
-          <span>{t('mobNavMap')}</span>
-        </Link>
-
-        <Link
-          to="/areas"
-          className={`flex flex-col items-center gap-0.5 ${
-            locationPath.pathname === '/areas' ? 'text-orange-500 dark:text-orange-400' : ''
-          }`}
-        >
-          <MapPin className="w-4 h-4" />
-          <span>{t('mobNavAreas')}</span>
-        </Link>
-
-        <Link
-          to="/history"
-          className={`flex flex-col items-center gap-0.5 ${
-            locationPath.pathname === '/history' ? 'text-orange-500 dark:text-orange-400' : ''
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>{t('mobNavHistory')}</span>
-        </Link>
-
-        <Link
-          to="/schedules"
-          className={`flex flex-col items-center gap-0.5 ${
-            locationPath.pathname === '/schedules' ? 'text-orange-500 dark:text-orange-400' : ''
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          <span>{t('mobNavSchedules')}</span>
-        </Link>
-
-        <Link
-          to="/stats"
-          className={`flex flex-col items-center gap-0.5 ${
-            locationPath.pathname === '/stats' ? 'text-orange-500 dark:text-orange-400' : ''
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          <span>{t('mobNavStats')}</span>
-        </Link>
-
-        <Link
-          to="/about"
-          className={`flex flex-col items-center gap-0.5 ${
-            locationPath.pathname === '/about' ? 'text-orange-500 dark:text-orange-400' : ''
-          }`}
-        >
-          <Info className="w-4 h-4" />
-          <span>{t('mobNavAbout')}</span>
-        </Link>
-      </nav>
+      
     </div>
   );
 };

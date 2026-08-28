@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Clock, RefreshCw, ChevronLeft, Share2, Zap, ZapOff, CheckCircle2 } from 'lucide-react';
+import { MapPin, Clock, RefreshCw, ChevronLeft, Share2, Zap, ZapOff, CheckCircle2, Calendar } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { ConsensusBar } from '../components/ConsensusBar';
 import { ReportCard } from '../components/ReportCard';
@@ -9,6 +9,8 @@ import { CardSkeleton } from '../components/SkeletonLoader';
 import { getBanglaRelativeTime } from '../utils/timeAgo';
 import { toBn } from '../utils/banglaDigits';
 import { useToast } from '../context/ToastContext';
+import { useLanguage } from '../context/LanguageContext';
+import defaultLocations from '../data/bangladeshLocations.json';
 import api from '../services/api';
 
 export const AreaStatus = () => {
@@ -17,6 +19,7 @@ export const AreaStatus = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { addToast } = useToast();
+  const { t, isBn } = useLanguage();
 
   const fetchAreaDetails = useCallback(async (showRefreshingSpinner = false) => {
     if (showRefreshingSpinner) setRefreshing(true);
@@ -24,9 +27,19 @@ export const AreaStatus = () => {
       const res = await api.get(`/locations/${id}`);
       if (res.data?.success) {
         setData(res.data.data);
+      } else {
+        // Fallback to static location if API returned false
+        const matched = defaultLocations.find(l => l.slug === id || l._id === id);
+        if (matched) {
+          setData({ location: matched, status: 'insufficient_data', recentReports: [] });
+        }
       }
     } catch (err) {
-      console.error('Error fetching area status:', err);
+      // Fallback to static location if offline
+      const matched = defaultLocations.find(l => l.slug === id || l._id === id);
+      if (matched) {
+        setData({ location: matched, status: 'insufficient_data', recentReports: [] });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -37,7 +50,6 @@ export const AreaStatus = () => {
     setLoading(true);
     fetchAreaDetails();
 
-    // Auto-polling refresh every 30 seconds
     const interval = setInterval(() => {
       fetchAreaDetails(false);
     }, 30000);
@@ -46,11 +58,12 @@ export const AreaStatus = () => {
   }, [fetchAreaDetails]);
 
   const handleShare = async () => {
+    const areaName = isBn ? data?.location?.nameBn : data?.location?.nameEn;
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${data?.location?.nameBn} এলাকার বিদ্যুতের স্ট্যাটাস`,
-          text: `দেখুন ${data?.location?.nameBn} এলাকায় কারেন্ট আছে কি না:`,
+          title: `${areaName} এলাকার বিদ্যুতের স্ট্যাটাস`,
+          text: `দেখুন ${areaName} এলাকায় কারেন্ট আছে কি না:`,
           url: window.location.href,
         });
       } catch {
@@ -58,7 +71,7 @@ export const AreaStatus = () => {
       }
     } else {
       navigator.clipboard.writeText(window.location.href);
-      addToast('লিঙ্ক কপি করা হয়েছে!', 'info');
+      addToast(isBn ? 'লিঙ্ক কপি করা হয়েছে!' : 'Link copied to clipboard!', 'info');
     }
   };
 
@@ -74,13 +87,17 @@ export const AreaStatus = () => {
   if (!data?.location) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center space-y-4">
-        <h2 className="text-2xl font-bold text-stone-900 dark:text-zinc-100">এলাকাটি পাওয়া যায়নি</h2>
-        <p className="text-stone-500 dark:text-zinc-400">অনুরোধকৃত এলাকার তথ্য পাওয়া যায়নি।</p>
+        <h2 className="text-2xl font-bold text-stone-900 dark:text-zinc-100">
+          {isBn ? 'এলাকাটি পাওয়া যায়নি' : 'Location Not Found'}
+        </h2>
+        <p className="text-stone-500 dark:text-zinc-400">
+          {isBn ? 'অনুরোধকৃত এলাকার তথ্য পাওয়া যায়নি।' : 'The requested area information could not be found.'}
+        </p>
         <Link
           to="/areas"
-          className="inline-block px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold"
+          className="inline-block px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-colors shadow-xs"
         >
-          সকল এলাকা দেখুন
+          {isBn ? 'সকল এলাকা দেখুন' : 'Browse All Areas'}
         </Link>
       </div>
     );
@@ -89,122 +106,106 @@ export const AreaStatus = () => {
   const { location, status } = data;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Breadcrumb & Top Bar */}
       <div className="flex items-center justify-between">
         <Link
           to="/"
-          className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-stone-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+          className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-stone-600 dark:text-zinc-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
         >
-          <ChevronLeft className="w-4 h-4" /> লাইভ ম্যাপে ফিরে যান
+          <ChevronLeft className="w-4 h-4" /> {isBn ? 'লাইভ ম্যাপে ফিরে যান' : 'Back to Live Map'}
         </Link>
+
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => fetchAreaDetails(true)}
-            className="p-2 rounded-xl text-stone-600 dark:text-zinc-400 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-1.5 text-xs font-semibold"
-            title="রিফ্রেশ করুন"
+            disabled={refreshing}
+            className="p-2 rounded-xl bg-white dark:bg-[#111214] border border-stone-200 dark:border-zinc-800 text-stone-600 dark:text-zinc-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors text-xs font-semibold flex items-center gap-1 shadow-xs"
+            title={isBn ? 'রিফ্রেশ করুন' : 'Refresh'}
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-emerald-600' : ''}`} />
-            <span className="hidden sm:inline">রিফ্রেশ</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-orange-500' : ''}`} />
+            <span className="hidden sm:inline">{isBn ? 'রিফ্রেশ' : 'Refresh'}</span>
           </button>
+
           <button
+            type="button"
             onClick={handleShare}
-            className="p-2 rounded-xl text-stone-600 dark:text-zinc-400 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-1.5 text-xs font-semibold"
-            title="শেয়ার করুন"
+            className="p-2 rounded-xl bg-white dark:bg-[#111214] border border-stone-200 dark:border-zinc-800 text-stone-600 dark:text-zinc-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors text-xs font-semibold flex items-center gap-1 shadow-xs"
+            title={isBn ? 'শেয়ার করুন' : 'Share'}
           >
-            <Share2 className="w-4 h-4" />
-            <span className="hidden sm:inline">শেয়ার</span>
+            <Share2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{isBn ? 'শেয়ার' : 'Share'}</span>
           </button>
         </div>
       </div>
 
-      {/* Main Area Status Hero Card */}
+      {/* Main Status Hero Card */}
       <div className="bg-white dark:bg-[#111214] rounded-3xl p-6 sm:p-8 shadow-sm border border-stone-200/80 dark:border-zinc-800 space-y-6">
-        {/* Header with Hierarchy */}
-        <div>
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-stone-500 dark:text-zinc-400 mb-1">
-            <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>{location.divisionBn} বিভাগ</span>
-            <span>&bull;</span>
-            <span>{location.districtBn} জেলা</span>
-            {location.upazilaBn && (
-              <>
-                <span>&bull;</span>
-                <span>{location.upazilaBn}</span>
-              </>
-            )}
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-950 dark:text-slate-100">
-              {location.nameBn}{' '}
-              <span className="text-lg sm:text-xl font-normal text-stone-500 dark:text-zinc-400">
-                ({location.nameEn})
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-stone-100 dark:border-zinc-800 pb-6">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-zinc-400 mb-1">
+              <MapPin className="w-3.5 h-3.5 text-orange-500" />
+              <span>{isBn ? `${location.divisionBn} বিভাগ` : location.division}</span>
+              <span>&bull;</span>
+              <span>{isBn ? `${location.districtBn} জেলা` : location.district}</span>
+            </div>
+            <h1 className="text-2xl sm:text-4xl font-extrabold text-stone-900 dark:text-zinc-100 tracking-tight">
+              {isBn ? location.nameBn : location.nameEn}{' '}
+              <span className="text-base sm:text-lg font-normal text-stone-400 dark:text-zinc-500">
+                ({isBn ? location.nameEn : location.nameBn})
               </span>
             </h1>
-            <div>
-              <StatusBadge status={status.status} size="lg" />
-            </div>
+          </div>
+
+          <div className="flex flex-col items-start sm:items-end gap-1.5">
+            <StatusBadge status={status} size="lg" />
+            <span className="text-xs text-stone-400 dark:text-zinc-500 flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              {location.lastReportAt ? getBanglaRelativeTime(location.lastReportAt) : (isBn ? 'কোনো সাম্প্রতিক রিপোর্ট নেই' : 'No recent reports')}
+            </span>
           </div>
         </div>
 
-        {/* Live Consensus and Percentages */}
-        <ConsensusBar
-          availablePercentage={status.availablePercentage}
-          unavailablePercentage={status.unavailablePercentage}
-          confidenceLabelBn={status.confidenceLabelBn}
-          totalRecentReports={status.totalRecentReports}
-        />
-
-        {/* Freshness & Timestamps */}
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500 dark:text-zinc-400 pt-2 border-t border-stone-100 dark:border-zinc-800">
-          <div className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-stone-400 dark:text-zinc-500" />
-            <span>
-              সর্বশেষ রিপোর্ট:{' '}
-              <strong className="text-slate-700 dark:text-slate-300 font-medium">
-                {status.lastReportAt ? getBanglaRelativeTime(status.lastReportAt) : 'কোনো তথ্য নেই'}
-              </strong>
-            </span>
-          </div>
-          <div>
-            সর্বমোট রিপোর্ট:{' '}
-            <strong className="text-slate-700 dark:text-slate-300 font-medium">{toBn(status.totalReportsCountAllTime)}টি</strong>
-          </div>
+        {/* Live Community Consensus */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-bold text-stone-900 dark:text-zinc-100">
+            {isBn ? 'কমিউনিটি কনসেনসাস ও রিপোর্ট অনুপাত:' : 'Community Consensus & Ratio:'}
+          </h3>
+          <ConsensusBar
+            availablePercentage={location.availablePercentage || 0}
+            unavailablePercentage={location.unavailablePercentage || 0}
+            confidenceLabelBn={isBn ? 'উচ্চ নির্ভরযোগ্যতা' : 'High Reliability'}
+            totalRecentReports={location.totalRecentReports || 0}
+          />
         </div>
 
-        {/* Recent Locality Mentions */}
-        {status.recentLocalities && status.recentLocalities.length > 0 && (
-          <div className="bg-stone-50 dark:bg-zinc-800/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
-            <span className="text-xs font-semibold text-stone-500 dark:text-zinc-400 block mb-1.5">
-              সাম্প্রতিক উল্লেখিত নির্দিষ্ট মহল্লা / সেক্টর:
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {status.recentLocalities.map((locName, idx) => (
-                <span
-                  key={idx}
-                  className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 shadow-xs"
-                >
-                  📍 {locName}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Action Links */}
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-stone-100 dark:border-zinc-800">
+          <Link
+            to={`/history?id=${location.slug || location._id}`}
+            className="px-4 py-2 rounded-xl bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 text-stone-900 dark:text-zinc-100 font-bold text-xs flex items-center gap-1.5 transition-colors"
+          >
+            <Clock className="w-3.5 h-3.5 text-orange-500" />
+            <span>{isBn ? 'সম্পূর্ণ ইতিহাস ও অ্যানালিটিক্স' : 'Outage History & Analytics'}</span>
+          </Link>
+
+          <Link
+            to={`/schedules?id=${location.slug || location._id}`}
+            className="px-4 py-2 rounded-xl bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 text-stone-900 dark:text-zinc-100 font-bold text-xs flex items-center gap-1.5 transition-colors"
+          >
+            <Calendar className="w-3.5 h-3.5 text-orange-500" />
+            <span>{isBn ? 'বিদ্যুৎ সময়সূচি' : 'Power Schedule'}</span>
+          </Link>
+        </div>
       </div>
 
-      {/* 1-Tap Reporting Card */}
-      <ReportCard
-        location={location}
-        onReportSuccess={(newStatus) => {
-          if (newStatus) {
-            setData((prev) => ({ ...prev, status: newStatus }));
-          } else {
-            fetchAreaDetails(false);
-          }
-        }}
-      />
+      {/* 1-Tap Report Card */}
+      <ReportCard location={location} onReportSuccess={() => fetchAreaDetails(true)} />
 
+      {/* Disclaimer */}
       <DisclaimerBox />
     </div>
   );
 };
+export default AreaStatus;

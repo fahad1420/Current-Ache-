@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, X, Loader2, ChevronRight, Crosshair, Command } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import defaultLocations from '../data/bangladeshLocations.json';
 import api from '../services/api';
 
 export const SearchBar = ({
@@ -44,7 +45,7 @@ export const SearchBar = ({
     return () => window.removeEventListener('keydown', handleKeyDownGlobal);
   }, [results]);
 
-  // Debounced search
+  // Debounced search with local fallback
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length === 0) {
@@ -58,17 +59,35 @@ export const SearchBar = ({
     const timeoutId = setTimeout(async () => {
       try {
         const res = await api.get(`/locations/search?q=${encodeURIComponent(trimmed)}`);
-        if (res.data?.success) {
-          setResults(res.data.data || []);
+        if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          setResults(res.data.data);
           setIsOpen(true);
           setSelectedIndex(-1);
+          setIsLoading(false);
+          return;
         }
       } catch (err) {
-        console.error('Search error:', err);
-      } finally {
-        setIsLoading(false);
+        // Fallback to local verified search
       }
-    }, 180);
+
+      // Local fallback search across all 593 official locations
+      const q = trimmed.toLowerCase();
+      const localMatches = defaultLocations.filter((l) =>
+        l.nameBn?.toLowerCase().includes(q) ||
+        l.nameEn?.toLowerCase().includes(q) ||
+        l.district?.toLowerCase().includes(q) ||
+        l.districtBn?.includes(q) ||
+        l.division?.toLowerCase().includes(q) ||
+        l.divisionBn?.includes(q) ||
+        (l.upazila && l.upazila.toLowerCase().includes(q)) ||
+        (l.upazilaBn && l.upazilaBn.includes(q))
+      ).slice(0, 10);
+
+      setResults(localMatches);
+      setIsOpen(true);
+      setSelectedIndex(-1);
+      setIsLoading(false);
+    }, 150);
 
     return () => clearTimeout(timeoutId);
   }, [query]);
@@ -176,7 +195,7 @@ export const SearchBar = ({
               </div>
               {results.map((loc, idx) => (
                 <button
-                  key={loc._id}
+                  key={loc._id || loc.slug}
                   onClick={() => handleSelectLocation(loc)}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center justify-between group ${
@@ -216,3 +235,4 @@ export const SearchBar = ({
     </div>
   );
 };
+export default SearchBar;

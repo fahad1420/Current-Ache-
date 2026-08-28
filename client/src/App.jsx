@@ -1,7 +1,7 @@
 ﻿import React from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
-import { Footer } from './components/Footer';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { Home } from './pages/Home';
 import { AreaStatus } from './pages/AreaStatus';
 import { AreasExplorer } from './pages/AreasExplorer';
@@ -35,7 +35,7 @@ export function App() {
               <ScrollToTop />
               <div className="flex flex-col min-h-screen bg-[#fafaf9] dark:bg-[#0a0a0b] text-stone-900 dark:text-zinc-100 transition-colors duration-150 antialiased selection:bg-orange-500/20 selection:text-orange-950 dark:selection:text-orange-200">
                 <Navbar />
-                <main className="flex-1">
+                <main className="flex-1 pb-16 lg:pb-0">
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/area/:id" element={<AreaStatus />} />
@@ -49,7 +49,7 @@ export function App() {
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </main>
-                <Footer />
+                <MobileBottomNav />
               </div>
             </ToastProvider>
           </AuthProvider>

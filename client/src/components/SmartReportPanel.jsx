@@ -15,6 +15,7 @@ import {
 import { toBn } from '../utils/banglaDigits';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
+import defaultLocations from '../data/bangladeshLocations.json';
 import api from '../services/api';
 
 export const SmartReportPanel = ({
@@ -23,7 +24,7 @@ export const SmartReportPanel = ({
   selectedLocation,
   onClearSelection,
   onReportSuccess,
-  allLocations = [],
+  allLocations = defaultLocations,
   onSelectLocation,
   onNearMe,
   isLocating = false,

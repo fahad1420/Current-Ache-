@@ -22,6 +22,7 @@ import {
 import { toBn } from '../utils/banglaDigits';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
+import defaultLocations from '../data/bangladeshLocations.json';
 import api from '../services/api';
 
 export const SchedulesPage = () => {
@@ -30,7 +31,7 @@ export const SchedulesPage = () => {
   const { t, isBn } = useLanguage();
   const { addToast } = useToast();
 
-  const [allLocations, setAllLocations] = useState([]);
+  const [allLocations, setAllLocations] = useState(defaultLocations);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [schedules, setSchedules] = useState([]);
