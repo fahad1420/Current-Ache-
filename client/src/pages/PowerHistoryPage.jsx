@@ -439,7 +439,7 @@ export const PowerHistoryPage = () => {
                   </h3>
                   <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                     {t('reliabilityScore')}:{' '}
-                    {historyData.reliability?.score !== null
+                    {historyData?.reliability?.score != null
                       ? `${isBn ? toBn(historyData.reliability.score) : historyData.reliability.score}%`
                       : t('reliabilityInsufficient')}
                   </div>

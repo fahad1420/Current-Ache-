@@ -678,6 +678,15 @@ export async function handleApiRequest(req, res) {
         },
       };
 
+      const reliability = {
+        score: uptimePct,
+        grade: uptimePct >= 80 ? 'high' : uptimePct >= 50 ? 'moderate' : 'low',
+        level: totalReps >= 5 ? 'high' : totalReps >= 2 ? 'medium' : 'low',
+        labelBn: uptimePct >= 80 ? 'উচ্চ নির্ভরযোগ্যতা' : uptimePct >= 50 ? 'মাঝারি' : 'নিম্ন',
+        labelEn: uptimePct >= 80 ? 'High Reliability' : uptimePct >= 50 ? 'Moderate' : 'Low',
+        totalReports: totalReps,
+      };
+
       return res.status(200).json({
         success: true,
         data: {
@@ -691,6 +700,7 @@ export async function handleApiRequest(req, res) {
             division: resolved?.division || 'Dhaka',
             slug: resolved?.slug || '',
           },
+          reliability,
           periods,
           reports: locReports.slice(0, 30),
         },
@@ -776,7 +786,40 @@ export async function handleApiRequest(req, res) {
         }
 
         const scheds = await ScheduleModel.find(filter).sort({ createdAt: -1 }).lean();
-        return res.status(200).json({ success: true, count: scheds.length, data: scheds });
+        const enrichedSchedules = scheds.map((sch) => {
+          const up = sch.upvotes || 0;
+          const down = sch.downvotes || 0;
+          const totalVotes = up + down;
+          const percentage = totalVotes > 0 ? Math.round((up / totalVotes) * 100) : 100;
+          const confidence = totalVotes >= 10 && percentage >= 75 ? 'high' : totalVotes >= 3 ? 'medium' : 'low';
+          return {
+            ...sch,
+            _id: String(sch._id),
+            id: String(sch._id),
+            events: sch.events || [],
+            upvotes: up,
+            downvotes: down,
+            trust: {
+              confidence,
+              percentage,
+              totalVotes,
+              confidenceLabelBn:
+                confidence === 'high'
+                  ? 'উচ্চ নির্ভরযোগ্যতা'
+                  : confidence === 'medium'
+                  ? 'মাঝারি নির্ভরযোগ্যতা'
+                  : 'কমিউনিটি সূচি',
+              confidenceLabelEn:
+                confidence === 'high'
+                  ? 'High Confidence'
+                  : confidence === 'medium'
+                  ? 'Medium Confidence'
+                  : 'Community Schedule',
+            },
+          };
+        });
+
+        return res.status(200).json({ success: true, count: enrichedSchedules.length, data: enrichedSchedules });
       }
 
       if (req.method === 'POST') {

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   Calendar,
@@ -355,19 +355,30 @@ export const SchedulesPage = () => {
 
                     {/* Trust Indicator Pill */}
                     <div className="flex items-center gap-2">
-                      <span
-                        className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                          sch.trust.confidence === 'high'
-                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/60'
-                            : sch.trust.confidence === 'medium'
-                            ? 'bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-300 border-orange-200/60 dark:border-orange-800/60'
-                            : 'bg-stone-50 dark:bg-zinc-800 text-stone-600 dark:text-zinc-400 border-stone-200 dark:border-zinc-700'
-                        }`}
-                      >
-                        {sch.trust.totalVotes > 0
-                          ? `${isBn ? toBn(sch.trust.percentage) : sch.trust.percentage}% ${t('verifiedByCommunity')}`
-                          : (isBn ? sch.trust.confidenceLabelBn : sch.trust.confidenceLabelEn)}
-                      </span>
+                      {(() => {
+                        const trust = sch.trust || {
+                          confidence: 'low',
+                          percentage: 100,
+                          totalVotes: 0,
+                          confidenceLabelBn: 'কমিউনিটি সূচি',
+                          confidenceLabelEn: 'Community Schedule',
+                        };
+                        return (
+                          <span
+                            className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                              trust.confidence === 'high'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/60'
+                                : trust.confidence === 'medium'
+                                ? 'bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-300 border-orange-200/60 dark:border-orange-800/60'
+                                : 'bg-stone-50 dark:bg-zinc-800 text-stone-600 dark:text-zinc-400 border-stone-200 dark:border-zinc-700'
+                            }`}
+                          >
+                            {trust.totalVotes > 0
+                              ? `${isBn ? toBn(trust.percentage) : trust.percentage}% ${t('verifiedByCommunity')}`
+                              : (isBn ? trust.confidenceLabelBn : trust.confidenceLabelEn)}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 
