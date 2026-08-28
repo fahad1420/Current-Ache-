@@ -345,7 +345,7 @@ export async function handleApiRequest(req, res) {
       let rawReports = [];
       if (db) {
         try {
-          rawReports = await ReportModel.find({ isFlagged: false })
+          rawReports = await ReportModel.find({ isFlagged: { $ne: true } })
             .sort({ createdAt: -1 })
             .limit(30)
             .populate('locationId')
