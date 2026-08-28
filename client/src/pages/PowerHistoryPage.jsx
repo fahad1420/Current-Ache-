@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   Clock,
@@ -32,6 +32,7 @@ export const PowerHistoryPage = () => {
   const { addToast } = useToast();
 
   const [allLocations, setAllLocations] = useState(defaultLocations);
+  const [reportedLocations, setReportedLocations] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activePeriod, setActivePeriod] = useState('24h');
@@ -40,7 +41,7 @@ export const PowerHistoryPage = () => {
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  // Fetch all 593 locations for search
+  // Fetch all 593 locations & dynamic reported areas from MongoDB
   useEffect(() => {
     const fetchLocations = async () => {
       try {
@@ -49,7 +50,6 @@ export const PowerHistoryPage = () => {
           const locs = res.data.data || [];
           setAllLocations(locs);
 
-          // If URL param specified a location, select it; otherwise leave null (require user selection)
           if (initialLocId && locs.length > 0) {
             const matched = locs.find(
               (l) => l._id === initialLocId || l.slug === initialLocId.toLowerCase()
@@ -64,7 +64,22 @@ export const PowerHistoryPage = () => {
       }
     };
 
+    const fetchReported = async () => {
+      try {
+        let res;
+        try {
+          res = await api.get('/locations/reported');
+        } catch (e) {
+          res = await api.get('/locations?type=reported');
+        }
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          setReportedLocations(res.data.data);
+        }
+      } catch (e) {}
+    };
+
     fetchLocations();
+    fetchReported();
   }, [initialLocId]);
 
   // Fetch history for selected location
@@ -251,6 +266,52 @@ export const PowerHistoryPage = () => {
                 ))}
               </div>
             )}
+
+              {/* Dynamic Reported Areas Section from MongoDB */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-stone-500 dark:text-zinc-400">
+                  {isBn ? 'রিপোর্টপ্রাপ্ত সক্রিয় এলাকা' : 'Active Reported Areas'}
+                </span>
+                <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400">
+                  {isBn ? `${toBn(reportedLocations.length)} টি এলাকা` : `${reportedLocations.length} areas`}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto p-0.5">
+                {reportedLocations
+                  .filter((loc) =>
+                    searchQuery.trim()
+                      ? loc.nameBn.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        loc.nameEn.toLowerCase().includes(searchQuery.toLowerCase())
+                      : true
+                  )
+                  .map((loc) => {
+                    const isSelected = selectedLocation?._id === loc._id || selectedLocation?.slug === loc.slug;
+                    return (
+                      <button
+                        key={loc._id || loc.slug}
+                        type="button"
+                        onClick={() => {
+                          setSelectedLocation(loc);
+                          setSearchParams({ id: loc.slug || loc._id });
+                        }}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                          isSelected
+                            ? 'bg-orange-500 text-white shadow-xs'
+                            : 'bg-stone-100 hover:bg-stone-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-stone-700 dark:text-zinc-300'
+                        }`}
+                      >
+                        <MapPin className="w-3 h-3 text-orange-500 shrink-0" />
+                        <span>{isBn ? loc.nameBn : loc.nameEn}</span>
+                        <span className="text-[10px] opacity-70">
+                          ({isBn ? loc.districtBn : loc.district})
+                        </span>
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
 
             {/* Currently Selected Location Banner */}
             {selectedLocation ? (

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Zap, PlugZap, HelpCircle, ArrowRight, Navigation, MapPin, ChevronRight, ChevronLeft, RotateCcw } from 'lucide-react';
@@ -557,7 +557,7 @@ export const BangladeshMap = ({
 
       {/* Hierarchical Breadcrumb Navigation Overlay (Problem 3) */}
       {selectedDivision && (
-        <div className="absolute top-20 left-4 z-20 pointer-events-auto bg-white/95 dark:bg-[#111214]/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-stone-200/90 dark:border-zinc-800 shadow-md flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-zinc-200 animate-in fade-in duration-200">
+        <div className="absolute top-[118px] md:top-20 left-3 md:left-4 z-20 pointer-events-auto bg-white/95 dark:bg-[#111214]/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-stone-200/90 dark:border-zinc-800 shadow-md flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-zinc-200 animate-in fade-in duration-200 max-w-[calc(100vw-24px)] overflow-x-auto">
           <button
             type="button"
             onClick={handleBackToAllDivisions}

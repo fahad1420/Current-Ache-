@@ -103,8 +103,32 @@ const ReportSchema = new mongoose.Schema(
   { timestamps: { createdAt: true, updatedAt: false } }
 );
 
+const ScheduleSchema = new mongoose.Schema(
+  {
+    locationId: { type: mongoose.Schema.Types.Mixed, ref: 'Location', required: true },
+    title: { type: String, required: true },
+    source: { type: String, default: 'official' },
+    effectiveDate: { type: Date, default: Date.now },
+    events: [
+      {
+        time: { type: String, required: true },
+        status: { type: String, enum: ['available', 'unavailable'], required: true },
+        note: { type: String, default: '' },
+      },
+    ],
+    upvotes: { type: Number, default: 0 },
+    downvotes: { type: Number, default: 0 },
+    isVerified: { type: Boolean, default: true },
+    isActive: { type: Boolean, default: true },
+    notes: { type: String, default: '' },
+  },
+  { timestamps: true }
+);
+
 export const LocationModel =
   mongoose.models.Location || mongoose.model('Location', LocationSchema, 'locations');
 export const ReportModel =
   mongoose.models.ElectricityReport ||
   mongoose.model('ElectricityReport', ReportSchema, 'electricityreports');
+export const ScheduleModel =
+  mongoose.models.PowerSchedule || mongoose.model('PowerSchedule', ScheduleSchema, 'powerschedules');
