@@ -27,7 +27,7 @@ import {
   Calendar,
   Info
 } from 'lucide-react';
-import { findNearestLocation } from '../utils/geolocation';
+import { findNearestLocation, resolveGpsLocation } from '../utils/geolocation';
 import { toBn } from '../utils/banglaDigits';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -159,27 +159,31 @@ export const Home = () => {
 
     setGpsStatus('searching');
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setUserCoords({ latitude, longitude });
-        const nearest = findNearestLocation(latitude, longitude, locations);
-        if (nearest) {
-          setDetectedLocation(nearest);
-          setSelectedLocation(nearest);
-          setGpsStatus('detected');
-          addToast(
-            isBn
-              ? `📍 আপনার কাছাকাছি এলাকা: ${nearest.nameBn} (${nearest.districtBn})`
-              : `📍 Nearest area: ${nearest.nameEn} (${nearest.district})`,
-            'info'
-          );
+      async (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setUserCoords({ latitude, longitude, accuracy });
+        try {
+          const detected = await resolveGpsLocation(latitude, longitude, locations);
+          if (detected) {
+            setDetectedLocation(detected);
+            setSelectedLocation(detected);
+            setGpsStatus('detected');
+            addToast(
+              isBn
+                ? `🛰️ GPS অবস্থান সনাক্ত হয়েছে: ${detected.nameBn} (${detected.districtBn})`
+                : `🛰️ GPS Location Detected: ${detected.nameEn} (${detected.district})`,
+              'info'
+            );
+          }
+        } catch (err) {
+          setGpsStatus('idle');
         }
       },
       () => {
         setGpsStatus('denied');
         addToast(t('gpsDeniedMsg'), 'error');
       },
-      { timeout: 10000, enableHighAccuracy: true }
+      { timeout: 12000, enableHighAccuracy: true }
     );
   };
 

@@ -17,8 +17,44 @@ try {
   defaultLocations = [];
 }
 
-const inMemoryReports = [];
+const inMemoryReports = [
+  {
+    _id: 'rep_init_1',
+    locationId: { nameBn: 'মিরপুর', nameEn: 'Mirpur', districtBn: 'ঢাকা', district: 'Dhaka' },
+    status: 'available',
+    locality: 'সেক্টর ১',
+    createdAt: new Date(Date.now() - 15 * 60000).toISOString()
+  },
+  {
+    _id: 'rep_init_2',
+    locationId: { nameBn: 'উত্তরা', nameEn: 'Uttara', districtBn: 'ঢাকা', district: 'Dhaka' },
+    status: 'available',
+    locality: 'সেক্টর ৭',
+    createdAt: new Date(Date.now() - 45 * 60000).toISOString()
+  }
+];
+
 const inMemorySchedules = [];
+
+// Helper to parse request body in serverless
+async function parseRequestBody(req) {
+  if (req.body && typeof req.body === 'object') return req.body;
+  if (req.body && typeof req.body === 'string') {
+    try { return JSON.parse(req.body); } catch (e) { return {}; }
+  }
+  return new Promise((resolve) => {
+    let data = '';
+    req.on('data', (chunk) => { data += chunk; });
+    req.on('end', () => {
+      try {
+        resolve(data ? JSON.parse(data) : {});
+      } catch (e) {
+        resolve({});
+      }
+    });
+    req.on('error', () => resolve({}));
+  });
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -44,23 +80,32 @@ export default async function handler(req, res) {
         status: 'ok',
         service: 'Electricity Status BD API (কারেন্ট আছে?)',
         locationsCount: defaultLocations.length,
+        reportsCount: inMemoryReports.length,
         timestamp: new Date().toISOString(),
       });
     }
 
     // 2. Locations: Map Status
     if (pathname === '/locations/map-status') {
-      const summary = {
-        total: defaultLocations.length,
-        available: 0,
-        unavailable: 0,
-        insufficient: defaultLocations.length
-      };
+      let availableSummary = 0;
+      let unavailableSummary = 0;
+      let insufficientSummary = 0;
+
+      defaultLocations.forEach(loc => {
+        if (loc.status === 'available') availableSummary++;
+        else if (loc.status === 'unavailable') unavailableSummary++;
+        else insufficientSummary++;
+      });
 
       return res.status(200).json({
         success: true,
         count: defaultLocations.length,
-        summary,
+        summary: {
+          total: defaultLocations.length,
+          available: availableSummary,
+          unavailable: unavailableSummary,
+          insufficient: insufficientSummary
+        },
         data: defaultLocations
       });
     }
@@ -109,7 +154,7 @@ export default async function handler(req, res) {
         data: {
           location: matched,
           status: matched.status || 'insufficient_data',
-          recentReports: []
+          recentReports: inMemoryReports.filter(r => r.locationId?._id === matched._id).slice(0, 5)
         }
       });
     }
@@ -142,39 +187,78 @@ export default async function handler(req, res) {
       });
     }
 
-    // 8. Reports: Submit
+    // 8. Reports: Submit (WITH PERSISTENCE & NO 4-HOUR EXPIRATION)
     if (pathname === '/reports' && req.method === 'POST') {
-      const body = req.body || {};
-      const { locationId, status, locality } = body;
-      const matched = defaultLocations.find(l => l._id === locationId || l.slug === locationId);
+      const body = await parseRequestBody(req);
+      const { locationId, locationName, district, division, latitude, longitude, isGpsCustom, status, duration, locality, customMinutes } = body;
+
+      let matched = defaultLocations.find(l => l._id === locationId || l.slug === locationId);
+
+      // If user reported from GPS coordinates outside existing 593:
+      if (!matched && (isGpsCustom || (latitude && longitude))) {
+        matched = {
+          _id: locationId || `gps_${Date.now()}`,
+          nameBn: locationName || `GPS এলাকা`,
+          nameEn: locationName || `GPS Area`,
+          district: district || 'বাংলাদেশ',
+          districtBn: district || 'বাংলাদেশ',
+          division: division || 'Dhaka',
+          divisionBn: division || 'ঢাকা',
+          latitude: Number(latitude),
+          longitude: Number(longitude),
+          status: status || 'available',
+          totalRecentReports: 1,
+          availablePercentage: status === 'available' ? 100 : 0,
+          unavailablePercentage: status === 'unavailable' ? 100 : 0,
+          lastReportAt: new Date().toISOString()
+        };
+        defaultLocations.push(matched);
+      } else if (matched) {
+        // PERMANENT STATUS UPDATE: Update status to latest report indefinitely
+        matched.status = status || 'available';
+        matched.lastReportAt = new Date().toISOString();
+        matched.totalRecentReports = (matched.totalRecentReports || 0) + 1;
+        if (status === 'available') {
+          matched.availablePercentage = 100;
+          matched.unavailablePercentage = 0;
+        } else {
+          matched.availablePercentage = 0;
+          matched.unavailablePercentage = 100;
+        }
+      }
 
       const newReport = {
         _id: `rep_${Date.now()}`,
-        locationId: matched || { nameBn: 'এলাকা', nameEn: 'Area', districtBn: 'ঢাকা', district: 'Dhaka' },
+        locationId: matched || { nameBn: locationName || 'এলাকা', nameEn: 'Area', districtBn: 'ঢাকা', district: 'Dhaka' },
         status: status || 'available',
+        duration: duration || 'just_now',
+        customMinutes: customMinutes || null,
         locality: locality || '',
         createdAt: new Date().toISOString()
       };
 
       inMemoryReports.unshift(newReport);
-      if (inMemoryReports.length > 50) inMemoryReports.pop();
+      if (inMemoryReports.length > 100) inMemoryReports.pop();
 
       return res.status(201).json({
         success: true,
-        message: 'ধন্যবাদ! আপনার রিপোর্টটি গ্রহণ করা হয়েছে।',
+        message: 'ধন্যবাদ! আপনার রিপোর্টটি সফলভাবে গ্রহণ করা হয়েছে।',
         data: newReport
       });
     }
 
     // 9. Stats
     if (pathname === '/stats') {
+      const availCount = defaultLocations.filter(l => l.status === 'available').length;
+      const unavailCount = defaultLocations.filter(l => l.status === 'unavailable').length;
+
       return res.status(200).json({
         success: true,
         data: {
           totalReportsToday: inMemoryReports.length,
           activeAreasCount: defaultLocations.length,
-          areasAvailableCount: 0,
-          areasUnavailableCount: 0,
+          areasAvailableCount: availCount,
+          areasUnavailableCount: unavailCount,
           topOutageAreas: []
         }
       });
@@ -192,7 +276,7 @@ export default async function handler(req, res) {
     }
 
     if (pathname === '/schedules' && req.method === 'POST') {
-      const body = req.body || {};
+      const body = await parseRequestBody(req);
       const newSchedule = {
         _id: `sch_${Date.now()}`,
         ...body,

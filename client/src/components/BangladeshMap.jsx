@@ -34,10 +34,10 @@ const MapController = ({ selectedLocation, userCoords, triggerReset }) => {
     };
   }, [map]);
 
-  // Smooth pan/zoom when a location is selected from search, list, or GPS
+  // Smooth pan/zoom when a location is selected
   useEffect(() => {
     if (selectedLocation?.latitude && selectedLocation?.longitude) {
-      map.flyTo([selectedLocation.latitude, selectedLocation.longitude], 12, {
+      map.flyTo([selectedLocation.latitude, selectedLocation.longitude], 13, {
         duration: 1.2,
         easeLinearity: 0.25,
       });
@@ -47,7 +47,7 @@ const MapController = ({ selectedLocation, userCoords, triggerReset }) => {
   // Smooth pan/zoom when user GPS coordinates are detected
   useEffect(() => {
     if (userCoords?.latitude && userCoords?.longitude && !selectedLocation) {
-      map.flyTo([userCoords.latitude, userCoords.longitude], 12, {
+      map.flyTo([userCoords.latitude, userCoords.longitude], 13, {
         duration: 1.4,
         easeLinearity: 0.25,
       });
@@ -66,7 +66,7 @@ const MapController = ({ selectedLocation, userCoords, triggerReset }) => {
   return null;
 };
 
-// Create custom glowing marker icons dynamically for ALL 593 locations
+// Create custom glowing marker icons dynamically
 const createCustomMarkerIcon = (status, isSelected = false) => {
   let bgClass = 'bg-zinc-600 text-zinc-200 dark:bg-zinc-700 dark:text-zinc-300';
   let iconHtml = '';
@@ -85,7 +85,7 @@ const createCustomMarkerIcon = (status, isSelected = false) => {
     iconHtml = `<span style="font-size: 10px; font-weight: 800;">!</span>`;
     size = isSelected ? 28 : 20;
   } else {
-    // Neutral dot for locations with insufficient / no recent data (all 593 upazilas)
+    // Neutral dot for locations with insufficient / no recent data
     bgClass = isSelected ? 'bg-orange-500 text-white' : 'bg-zinc-500/80 text-white dark:bg-zinc-600/90';
     iconHtml = `<div class="w-1.5 h-1.5 rounded-full bg-white/90"></div>`;
     size = isSelected ? 26 : 16;
@@ -114,19 +114,19 @@ const createUserLocationIcon = () => {
     className: '',
     html: `
       <div class="relative flex items-center justify-center">
-        <span class="absolute w-6 h-6 rounded-full bg-cyan-500/30 animate-radar"></span>
-        <div class="w-3.5 h-3.5 rounded-full bg-cyan-500 border-2 border-white dark:border-zinc-900 shadow-sm flex items-center justify-center text-white">
-          <div class="w-1 h-1 rounded-full bg-white"></div>
+        <span class="absolute w-7 h-7 rounded-full bg-cyan-500/30 animate-radar"></span>
+        <div class="w-4 h-4 rounded-full bg-cyan-500 border-2 border-white dark:border-zinc-900 shadow-md flex items-center justify-center text-white">
+          <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
         </div>
       </div>
     `,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-    popupAnchor: [0, -8],
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -9],
   });
 };
 
-// Marker cluster layer for ALL 593 locations
+// Marker cluster layer with NO SPIDERWEB EXPLOSION on mobile
 const MarkerClusterWrapper = ({ locations, onSelectLocation, selectedLocation }) => {
   const map = useMap();
   const clusterGroupRef = useRef(null);
@@ -134,11 +134,13 @@ const MarkerClusterWrapper = ({ locations, onSelectLocation, selectedLocation })
   useEffect(() => {
     if (!map) return;
 
+    // Controlled clustering: smooth zoom into cluster instead of radial explosion
     const clusterGroup = L.markerClusterGroup({
       showCoverageOnHover: false,
       maxClusterRadius: 40,
-      spiderfyOnMaxZoom: true,
-      zoomToBoundsOnClick: true,
+      spiderfyOnMaxZoom: false, // Prevents radial spiderweb explosion!
+      zoomToBoundsOnClick: true, // Smoothly zooms in
+      disableClusteringAtZoom: 13, // At zoom 13+, individual markers display cleanly
       iconCreateFunction: (cluster) => {
         const markers = cluster.getAllChildMarkers();
         let availableCount = 0;
@@ -150,7 +152,7 @@ const MarkerClusterWrapper = ({ locations, onSelectLocation, selectedLocation })
         });
 
         const total = markers.length;
-        let clusterBg = 'bg-zinc-800 text-white border-zinc-700';
+        let clusterBg = 'bg-stone-800 text-white border-stone-600';
 
         if (unavailableCount > 0 && availableCount === 0) {
           clusterBg = 'bg-rose-600 text-white border-rose-200';
@@ -211,7 +213,7 @@ export const BangladeshMap = ({
   const { t, isBn } = useLanguage();
   const { isDark } = useTheme();
 
-  // Filter locations dynamically while preserving ALL 593 administrative locations
+  // Filter locations dynamically
   const filteredLocations = useMemo(() => {
     if (activeFilter === 'available') {
       return locations.filter((loc) => loc.status === 'available');
@@ -222,33 +224,27 @@ export const BangladeshMap = ({
     return locations;
   }, [locations, activeFilter]);
 
-  // Standard OpenStreetMap Tiles (100% Free, Zero API Keys, Zero Watermarks)
-  // In Dark Mode, CSS filter .dark .leaflet-tile-pane renders a high-contrast dark basemap!
-  const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-  const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  const tileLayerUrl = isDark
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 
   return (
-    <div
-      className="relative w-full h-full overflow-hidden"
-      style={{ width: '100%', height: '100%', minHeight: '480px' }}
-    >
+    <div className="relative w-full h-full min-h-[420px] bg-stone-100 dark:bg-[#0a0a0b] select-none transition-colors">
       <MapContainer
         center={BANGLADESH_CENTER}
         zoom={window.innerWidth < 768 ? 6.5 : 7.2}
         minZoom={6}
         maxZoom={18}
         maxBounds={BANGLADESH_BOUNDS}
-        maxBoundsViscosity={0.7}
-        scrollWheelZoom={true}
+        maxBoundsViscosity={0.8}
         zoomControl={false}
-        className="w-full h-full"
-        style={{ width: '100%', height: '100%', minHeight: '480px' }}
+        scrollWheelZoom={true}
+        className="w-full h-full z-0 font-sans"
+        attributionControl={false}
       >
         <TileLayer
-          key={isDark ? 'osm-dark' : 'osm-light'}
-          attribution={tileAttribution}
-          url={tileUrl}
-          subdomains={['a', 'b', 'c']}
+          url={tileLayerUrl}
+          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           maxZoom={19}
         />
 
@@ -258,40 +254,86 @@ export const BangladeshMap = ({
           triggerReset={triggerReset}
         />
 
-        {/* User GPS Location Marker */}
-        {userCoords?.latitude && userCoords?.longitude && (
-          <>
-            <Circle
-              center={[userCoords.latitude, userCoords.longitude]}
-              radius={400}
-              pathOptions={{
-                color: '#06b6d4',
-                fillColor: '#06b6d4',
-                fillOpacity: 0.12,
-                weight: 1,
-              }}
-            />
-            <Marker
-              position={[userCoords.latitude, userCoords.longitude]}
-              icon={createUserLocationIcon()}
-            >
-              <Popup className="custom-popup" closeButton={false}>
-                <div className="p-2 bg-white dark:bg-[#111214] text-xs font-bold text-stone-900 dark:text-zinc-100 flex items-center gap-1.5">
-                  <Navigation className="w-3.5 h-3.5 text-cyan-500 fill-current" />
-                  <span>{t('youAreHere')}</span>
-                </div>
-              </Popup>
-            </Marker>
-          </>
-        )}
-
-        {/* Marker Cluster for ALL 593 administrative locations */}
+        {/* Clustered Marker Layer */}
         <MarkerClusterWrapper
           locations={filteredLocations}
           onSelectLocation={onSelectLocation}
           selectedLocation={selectedLocation}
         />
+
+        {/* User GPS Location Marker */}
+        {userCoords && (
+          <>
+            <Marker
+              position={[userCoords.latitude, userCoords.longitude]}
+              icon={createUserLocationIcon()}
+            >
+              <Popup className="custom-popup">
+                <div className="p-2 space-y-1.5 min-w-[170px] text-xs">
+                  <div className="flex items-center gap-1.5 text-cyan-600 font-bold">
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>{isBn ? 'আপনার বর্তমান GPS অবস্থান' : 'Your GPS Location'}</span>
+                  </div>
+                  <div className="text-[10px] text-stone-500">
+                    {userCoords.latitude.toFixed(4)}, {userCoords.longitude.toFixed(4)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onSelectLocation) {
+                        onSelectLocation({
+                          _id: `gps_${userCoords.latitude.toFixed(4)}_${userCoords.longitude.toFixed(4)}`,
+                          nameBn: `GPS এলাকা (${userCoords.latitude.toFixed(4)}, ${userCoords.longitude.toFixed(4)})`,
+                          nameEn: `GPS Area (${userCoords.latitude.toFixed(4)}, ${userCoords.longitude.toFixed(4)})`,
+                          district: 'বাংলাদেশ',
+                          districtBn: 'বাংলাদেশ',
+                          division: 'Dhaka',
+                          divisionBn: 'ঢাকা',
+                          latitude: userCoords.latitude,
+                          longitude: userCoords.longitude,
+                          isGpsCustom: true,
+                          isGpsDetected: true
+                        });
+                      }
+                    }}
+                    className="w-full py-1 px-2 rounded-lg bg-orange-500 text-white font-bold text-[11px] hover:bg-orange-600 transition-colors mt-1"
+                  >
+                    {isBn ? 'এখানে রিপোর্ট দিন' : 'Report Here'}
+                  </button>
+                </div>
+              </Popup>
+            </Marker>
+            <Circle
+              center={[userCoords.latitude, userCoords.longitude]}
+              radius={userCoords.accuracy || 1200}
+              pathOptions={{
+                color: '#06b6d4',
+                fillColor: '#06b6d4',
+                fillOpacity: 0.08,
+                weight: 1,
+                dashArray: '3, 6',
+              }}
+            />
+          </>
+        )}
       </MapContainer>
+
+      {/* Map Legend */}
+      <div className="absolute bottom-4 left-4 z-20 pointer-events-auto bg-white/95 dark:bg-[#111214]/95 backdrop-blur-md px-3 py-2 rounded-xl border border-stone-200/90 dark:border-zinc-800 shadow-sm flex items-center gap-3 text-[10px] sm:text-xs font-semibold text-stone-700 dark:text-zinc-300">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20"></span>
+          <span>{t('statusYes')}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-rose-500 ring-2 ring-rose-500/20"></span>
+          <span>{t('statusNo')}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-stone-400 dark:bg-zinc-600"></span>
+          <span>{t('statusUncertain')}</span>
+        </div>
+      </div>
     </div>
   );
 };
+export default BangladeshMap;
