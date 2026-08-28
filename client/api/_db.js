@@ -6,13 +6,16 @@ try {
   dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
 } catch (e) {}
 
+const DEFAULT_MONGODB_URI =
+  'mongodb+srv://fahadhossain04_db_user:VdxUrHygIFzvjLob@cluster0.qnigurs.mongodb.net/electricity_status_bd?retryWrites=true&w=majority&appName=Cluster0';
+
 let cached = global.mongoose;
 if (!cached) {
   cached = global.mongoose = { conn: null, promise: null };
 }
 
 export async function connectToDatabase() {
-  const uri = process.env.MONGODB_URI;
+  const uri = process.env.MONGODB_URI || DEFAULT_MONGODB_URI;
   if (!uri) {
     return null;
   }
@@ -25,8 +28,8 @@ export async function connectToDatabase() {
     const opts = {
       dbName: process.env.MONGODB_DB_NAME || 'electricity_status_bd',
       bufferCommands: false,
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 8000,
+      connectTimeoutMS: 8000,
       maxPoolSize: 10,
     };
     cached.promise = mongoose
