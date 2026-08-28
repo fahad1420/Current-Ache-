@@ -1,8 +1,8 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import 'leaflet.markercluster';
-import { Zap, PlugZap, HelpCircle, ArrowRight, Navigation, MapPin } from 'lucide-react';
+import { Zap, PlugZap, HelpCircle, ArrowRight, Navigation, MapPin, ChevronRight, ChevronLeft, RotateCcw } from 'lucide-react';
+import { toBn } from '../utils/banglaDigits';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { resolveGpsLocation } from '../utils/geolocation';
@@ -14,10 +14,22 @@ const BANGLADESH_BOUNDS = [
   [27.0, 93.0],
 ];
 
-// Map Event Listener for Map-Click location picking (Problem 5)
+// Division centers with approximate coordinates
+const DIVISION_CENTERS = {
+  Dhaka: { lat: 23.8103, lng: 90.4125, nameBn: 'ঢাকা', nameEn: 'Dhaka', zoom: 8.5 },
+  Chattogram: { lat: 22.3569, lng: 91.7832, nameBn: 'চট্টগ্রাম', nameEn: 'Chattogram', zoom: 8.5 },
+  Rajshahi: { lat: 24.3636, lng: 88.6241, nameBn: 'রাজশাহী', nameEn: 'Rajshahi', zoom: 8.5 },
+  Khulna: { lat: 22.8456, lng: 89.5403, nameBn: 'খুলনা', nameEn: 'Khulna', zoom: 8.5 },
+  Barishal: { lat: 22.7010, lng: 90.3535, nameBn: 'বরিশাল', nameEn: 'Barishal', zoom: 8.5 },
+  Sylhet: { lat: 24.8949, lng: 91.8687, nameBn: 'সিলেট', nameEn: 'Sylhet', zoom: 8.5 },
+  Rangpur: { lat: 25.7439, lng: 89.2752, nameBn: 'রংপুর', nameEn: 'Rangpur', zoom: 8.5 },
+  Mymensingh: { lat: 24.7471, lng: 90.4203, nameBn: 'ময়মনসিংহ', nameEn: 'Mymensingh', zoom: 8.5 },
+};
+
+// Map Click Handler for Problem 5
 const MapClickHandler = ({ onMapClick }) => {
   useMapEvents({
-    click: async (e) => {
+    click: (e) => {
       const { lat, lng } = e.latlng;
       if (onMapClick) {
         onMapClick(lat, lng);
@@ -28,27 +40,30 @@ const MapClickHandler = ({ onMapClick }) => {
 };
 
 // Helper controller component to manage map sizing, pan & zoom
-const MapController = ({ selectedLocation, userCoords, triggerReset }) => {
+const MapController = ({ selectedLocation, userCoords, triggerReset, targetView }) => {
   const map = useMap();
 
   useEffect(() => {
     map.invalidateSize();
     const t1 = setTimeout(() => map.invalidateSize(), 150);
     const t2 = setTimeout(() => map.invalidateSize(), 600);
-
-    const handleResize = () => {
-      map.invalidateSize();
-    };
-
-    window.addEventListener('resize', handleResize);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
-      window.removeEventListener('resize', handleResize);
     };
   }, [map]);
 
-  // Smooth pan/zoom when a location is selected
+  // Smooth pan/zoom when targetView changes (e.g. drilling down division or district)
+  useEffect(() => {
+    if (targetView?.lat && targetView?.lng) {
+      map.flyTo([targetView.lat, targetView.lng], targetView.zoom || 9, {
+        duration: 1.0,
+        easeLinearity: 0.25,
+      });
+    }
+  }, [targetView, map]);
+
+  // Smooth pan/zoom when a location is selected from search/list
   useEffect(() => {
     if (selectedLocation?.latitude && selectedLocation?.longitude) {
       map.flyTo([selectedLocation.latitude, selectedLocation.longitude], 13, {
@@ -62,7 +77,7 @@ const MapController = ({ selectedLocation, userCoords, triggerReset }) => {
   useEffect(() => {
     if (userCoords?.latitude && userCoords?.longitude && !selectedLocation) {
       map.flyTo([userCoords.latitude, userCoords.longitude], 13, {
-        duration: 1.4,
+        duration: 1.2,
         easeLinearity: 0.25,
       });
     }
@@ -121,6 +136,38 @@ const createCustomMarkerIcon = (status, isSelected = false) => {
   });
 };
 
+// Create Division Badge Icon (Level 1)
+const createDivisionBadgeIcon = (nameBn, count, unavailCount = 0) => {
+  const badgeBg = unavailCount > 0 ? 'bg-rose-600 text-white' : 'bg-orange-500 text-white';
+  return L.divIcon({
+    className: '',
+    html: `
+      <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full ${badgeBg} shadow-lg border-2 border-white dark:border-zinc-900 font-bold text-xs cursor-pointer hover:scale-105 transition-transform whitespace-nowrap">
+        <span>${nameBn}</span>
+        <span class="px-1.5 py-0.2 rounded-full bg-black/20 text-[10px]">${toBn(count)}</span>
+      </div>
+    `,
+    iconSize: [80, 30],
+    iconAnchor: [40, 15],
+  });
+};
+
+// Create District Badge Icon (Level 2)
+const createDistrictBadgeIcon = (nameBn, count, unavailCount = 0) => {
+  const badgeBg = unavailCount > 0 ? 'bg-rose-600 text-white' : 'bg-stone-800 dark:bg-zinc-700 text-white';
+  return L.divIcon({
+    className: '',
+    html: `
+      <div class="flex items-center gap-1 px-2 py-1 rounded-xl ${badgeBg} shadow-md border border-white/90 dark:border-zinc-800 font-bold text-[11px] cursor-pointer hover:scale-105 transition-transform whitespace-nowrap">
+        <span>${nameBn}</span>
+        <span class="px-1 py-0.2 rounded-md bg-white/20 text-[9px]">${toBn(count)}</span>
+      </div>
+    `,
+    iconSize: [70, 24],
+    iconAnchor: [35, 12],
+  });
+};
+
 // Map Click Picked Pin Marker
 const createMapClickIcon = () => {
   return L.divIcon({
@@ -157,81 +204,6 @@ const createUserLocationIcon = () => {
   });
 };
 
-// Marker cluster layer with smooth zooming
-const MarkerClusterWrapper = ({ locations, onSelectLocation, selectedLocation }) => {
-  const map = useMap();
-  const clusterGroupRef = useRef(null);
-
-  useEffect(() => {
-    if (!map) return;
-
-    const clusterGroup = L.markerClusterGroup({
-      showCoverageOnHover: false,
-      maxClusterRadius: 35, // Natural regional clustering
-      spiderfyOnMaxZoom: false, // Prevents radial spiderweb explosion!
-      zoomToBoundsOnClick: true, // Smooth zoom to cluster bounds
-      disableClusteringAtZoom: 12, // Shows individual pins cleanly at street level
-      iconCreateFunction: (cluster) => {
-        const markers = cluster.getAllChildMarkers();
-        let availableCount = 0;
-        let unavailableCount = 0;
-
-        markers.forEach((m) => {
-          if (m.options.status === 'available') availableCount++;
-          if (m.options.status === 'unavailable') unavailableCount++;
-        });
-
-        const total = markers.length;
-        let clusterBg = 'bg-stone-800 text-white border-stone-600';
-
-        if (unavailableCount > 0 && availableCount === 0) {
-          clusterBg = 'bg-rose-600 text-white border-rose-200';
-        } else if (availableCount > 0 && unavailableCount === 0) {
-          clusterBg = 'bg-emerald-600 text-white border-emerald-200';
-        } else if (unavailableCount > 0 && availableCount > 0) {
-          clusterBg = 'bg-orange-500 text-white border-orange-200';
-        }
-
-        return L.divIcon({
-          html: `<div class="flex items-center justify-center rounded-full font-bold text-xs border shadow-sm ${clusterBg}" style="width: 28px; height: 28px;">${total}</div>`,
-          className: '',
-          iconSize: [28, 28],
-          iconAnchor: [14, 14],
-        });
-      },
-    });
-
-    locations.forEach((loc) => {
-      if (!loc.latitude || !loc.longitude) return;
-      const isSelected = selectedLocation?._id === loc._id || selectedLocation?.slug === loc.slug;
-      const icon = createCustomMarkerIcon(loc.status, isSelected);
-
-      const marker = L.marker([loc.latitude, loc.longitude], {
-        icon,
-        status: loc.status || 'insufficient_data',
-      });
-
-      marker.on('click', (e) => {
-        L.DomEvent.stopPropagation(e);
-        onSelectLocation(loc);
-      });
-
-      clusterGroup.addLayer(marker);
-    });
-
-    map.addLayer(clusterGroup);
-    clusterGroupRef.current = clusterGroup;
-
-    return () => {
-      if (clusterGroupRef.current) {
-        map.removeLayer(clusterGroupRef.current);
-      }
-    };
-  }, [map, locations, selectedLocation, onSelectLocation]);
-
-  return null;
-};
-
 export const BangladeshMap = ({
   locations = [],
   selectedLocation,
@@ -243,6 +215,12 @@ export const BangladeshMap = ({
 }) => {
   const { t, isBn } = useLanguage();
   const { isDark } = useTheme();
+
+  // Hierarchical Navigation State (Problem 3)
+  // hierarchy: 'national' | 'division' | 'district' | 'all_pins'
+  const [selectedDivision, setSelectedDivision] = useState(null);
+  const [selectedDistrict, setSelectedDistrict] = useState(null);
+  const [targetView, setTargetView] = useState(null);
   const [clickedPoint, setClickedPoint] = useState(null);
 
   // Filter locations dynamically
@@ -256,10 +234,134 @@ export const BangladeshMap = ({
     return locations;
   }, [locations, activeFilter]);
 
-  // Reliable, 100% free tile layers without any API keys
-  const tileLayerUrl = isDark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  // Reset hierarchy when map is reset
+  useEffect(() => {
+    if (triggerReset) {
+      setSelectedDivision(null);
+      setSelectedDistrict(null);
+      setTargetView(null);
+      setClickedPoint(null);
+    }
+  }, [triggerReset]);
+
+  // If a location is selected from search or GPS, auto-set hierarchy to show pins
+  useEffect(() => {
+    if (selectedLocation?.division) {
+      setSelectedDivision(selectedLocation.division);
+      if (selectedLocation.district) {
+        setSelectedDistrict(selectedLocation.district);
+      }
+    }
+  }, [selectedLocation]);
+
+  // 100% Free standard OpenStreetMap tiles (ZERO API KEY REQUIREMENT!)
+  const tileLayerUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  // Compute Division Aggregates (Level 1)
+  const divisionAggregates = useMemo(() => {
+    const map = {};
+    Object.keys(DIVISION_CENTERS).forEach((divKey) => {
+      map[divKey] = {
+        ...DIVISION_CENTERS[divKey],
+        count: 0,
+        unavailCount: 0,
+        availCount: 0,
+      };
+    });
+
+    filteredLocations.forEach((loc) => {
+      if (loc.division && map[loc.division]) {
+        map[loc.division].count++;
+        if (loc.status === 'unavailable') map[loc.division].unavailCount++;
+        if (loc.status === 'available') map[loc.division].availCount++;
+      }
+    });
+
+    return Object.values(map);
+  }, [filteredLocations]);
+
+  // Compute District Aggregates for Selected Division (Level 2)
+  const districtAggregates = useMemo(() => {
+    if (!selectedDivision) return [];
+
+    const distMap = new Map();
+    const divLocs = filteredLocations.filter(
+      (l) => l.division?.toLowerCase() === selectedDivision.toLowerCase()
+    );
+
+    divLocs.forEach((loc) => {
+      const distName = loc.district || 'District';
+      if (!distMap.has(distName)) {
+        distMap.set(distName, {
+          district: distName,
+          districtBn: loc.districtBn || distName,
+          division: loc.division,
+          divisionBn: loc.divisionBn,
+          latSum: 0,
+          lngSum: 0,
+          count: 0,
+          unavailCount: 0,
+          locations: [],
+        });
+      }
+      const d = distMap.get(distName);
+      d.count++;
+      if (loc.latitude && loc.longitude) {
+        d.latSum += loc.latitude;
+        d.lngSum += loc.longitude;
+      }
+      if (loc.status === 'unavailable') d.unavailCount++;
+      d.locations.push(loc);
+    });
+
+    return Array.from(distMap.values()).map((d) => ({
+      ...d,
+      lat: d.count > 0 ? d.latSum / d.count : 23.81,
+      lng: d.count > 0 ? d.lngSum / d.count : 90.41,
+    }));
+  }, [selectedDivision, filteredLocations]);
+
+  // Locations to display (Level 3: when division/district selected or all pins)
+  const visiblePinLocations = useMemo(() => {
+    if (!selectedDivision) return [];
+    if (selectedDistrict) {
+      return filteredLocations.filter(
+        (l) =>
+          l.division?.toLowerCase() === selectedDivision.toLowerCase() &&
+          l.district?.toLowerCase() === selectedDistrict.toLowerCase()
+      );
+    }
+    return filteredLocations.filter(
+      (l) => l.division?.toLowerCase() === selectedDivision.toLowerCase()
+    );
+  }, [selectedDivision, selectedDistrict, filteredLocations]);
+
+  // Drill down into a Division
+  const handleSelectDivision = (div) => {
+    setSelectedDivision(div.nameEn);
+    setSelectedDistrict(null);
+    setTargetView({ lat: div.lat, lng: div.lng, zoom: 8.8 });
+  };
+
+  // Drill down into a District
+  const handleSelectDistrict = (dist) => {
+    setSelectedDistrict(dist.district);
+    setTargetView({ lat: dist.lat, lng: dist.lng, zoom: 11 });
+  };
+
+  // Reset to All Bangladesh (Level 1)
+  const handleBackToAllDivisions = () => {
+    setSelectedDivision(null);
+    setSelectedDistrict(null);
+    setTargetView({ lat: BANGLADESH_CENTER[0], lng: BANGLADESH_CENTER[1], zoom: window.innerWidth < 768 ? 6.5 : 7.2 });
+  };
+
+  // Reset to Current Division (Level 2)
+  const handleBackToDivision = () => {
+    setSelectedDistrict(null);
+    const divCenter = DIVISION_CENTERS[selectedDivision] || { lat: 23.81, lng: 90.41, zoom: 8.8 };
+    setTargetView({ lat: divCenter.lat, lng: divCenter.lng, zoom: 8.8 });
+  };
 
   // Handle map click picking (Problem 5)
   const handleMapClick = async (lat, lng) => {
@@ -312,17 +414,57 @@ export const BangladeshMap = ({
           selectedLocation={selectedLocation}
           userCoords={userCoords}
           triggerReset={triggerReset}
+          targetView={targetView}
         />
 
-        {/* Listen for map clicks */}
+        {/* Listen for map clicks anywhere */}
         <MapClickHandler onMapClick={handleMapClick} />
 
-        {/* Clustered Marker Layer */}
-        <MarkerClusterWrapper
-          locations={filteredLocations}
-          onSelectLocation={onSelectLocation}
-          selectedLocation={selectedLocation}
-        />
+        {/* LEVEL 1: Division Cluster Badges (When at National View) */}
+        {!selectedDivision &&
+          divisionAggregates.map((div) => (
+            <Marker
+              key={div.nameEn}
+              position={[div.lat, div.lng]}
+              icon={createDivisionBadgeIcon(div.nameBn, div.count, div.unavailCount)}
+              eventHandlers={{
+                click: () => handleSelectDivision(div),
+              }}
+            />
+          ))}
+
+        {/* LEVEL 2: District Badges (When Division is selected and no district yet) */}
+        {selectedDivision && !selectedDistrict &&
+          districtAggregates.map((dist) => (
+            <Marker
+              key={dist.district}
+              position={[dist.lat, dist.lng]}
+              icon={createDistrictBadgeIcon(dist.districtBn, dist.count, dist.unavailCount)}
+              eventHandlers={{
+                click: () => handleSelectDistrict(dist),
+              }}
+            />
+          ))}
+
+        {/* LEVEL 3 & 4: Actual Upazila / Location Pins */}
+        {selectedDivision &&
+          visiblePinLocations.map((loc) => {
+            if (!loc.latitude || !loc.longitude) return null;
+            const isSelected = selectedLocation?._id === loc._id || selectedLocation?.slug === loc.slug;
+            return (
+              <Marker
+                key={loc._id || loc.slug}
+                position={[loc.latitude, loc.longitude]}
+                icon={createCustomMarkerIcon(loc.status, isSelected)}
+                eventHandlers={{
+                  click: (e) => {
+                    L.DomEvent.stopPropagation(e);
+                    if (onSelectLocation) onSelectLocation(loc);
+                  },
+                }}
+              />
+            );
+          })}
 
         {/* Map-Click Picked Location Marker (Problem 5) */}
         {clickedPoint && (
@@ -387,7 +529,7 @@ export const BangladeshMap = ({
                           latitude: userCoords.latitude,
                           longitude: userCoords.longitude,
                           isGpsCustom: true,
-                          isGpsDetected: true
+                          isGpsDetected: true,
                         });
                       }
                     }}
@@ -412,6 +554,39 @@ export const BangladeshMap = ({
           </>
         )}
       </MapContainer>
+
+      {/* Hierarchical Breadcrumb Navigation Overlay (Problem 3) */}
+      {selectedDivision && (
+        <div className="absolute top-20 left-4 z-20 pointer-events-auto bg-white/95 dark:bg-[#111214]/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-stone-200/90 dark:border-zinc-800 shadow-md flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-zinc-200 animate-in fade-in duration-200">
+          <button
+            type="button"
+            onClick={handleBackToAllDivisions}
+            className="flex items-center gap-1 hover:text-orange-500 text-stone-500 dark:text-zinc-400 transition-colors"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>{isBn ? 'সকল বিভাগ' : 'All Divisions'}</span>
+          </button>
+
+          <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
+
+          <button
+            type="button"
+            onClick={handleBackToDivision}
+            className={`hover:text-orange-500 transition-colors ${!selectedDistrict ? 'text-orange-600 dark:text-orange-400' : 'text-stone-600 dark:text-zinc-400'}`}
+          >
+            {isBn ? (DIVISION_CENTERS[selectedDivision]?.nameBn || selectedDivision) : selectedDivision}
+          </button>
+
+          {selectedDistrict && (
+            <>
+              <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
+              <span className="text-orange-600 dark:text-orange-400 font-extrabold truncate max-w-[120px]">
+                {selectedDistrict}
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Map Legend */}
       <div className="absolute bottom-4 left-4 z-20 pointer-events-auto bg-white/95 dark:bg-[#111214]/95 backdrop-blur-md px-3 py-2 rounded-xl border border-stone-200/90 dark:border-zinc-800 shadow-sm flex items-center gap-3 text-[10px] sm:text-xs font-semibold text-stone-700 dark:text-zinc-300">
