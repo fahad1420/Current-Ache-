@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+﻿import mongoose from 'mongoose';
 import dns from 'dns';
 
 // Fallback DNS to Google & Cloudflare DNS in case local/lambda DNS fails on SRV
@@ -82,7 +82,7 @@ const LocationSchema = new mongoose.Schema(
 
 const ReportSchema = new mongoose.Schema(
   {
-    locationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Location', required: true },
+    locationId: { type: mongoose.Schema.Types.Mixed, ref: 'Location', required: true },
     status: {
       type: String,
       enum: ['available', 'unavailable'],

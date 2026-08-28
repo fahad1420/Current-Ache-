@@ -1,11 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, PlugZap, Clock, Radio, ChevronRight } from 'lucide-react';
 import { getBanglaRelativeTime } from '../utils/timeAgo';
 import { toBn } from '../utils/banglaDigits';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../services/api';
 
-export const RecentReportsTicker = () => {
+export const RecentReportsTicker = ({ refreshTrigger = 0 }) => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const { t, isBn } = useLanguage();
@@ -28,6 +28,12 @@ export const RecentReportsTicker = () => {
     const interval = setInterval(fetchReports, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      fetchReports();
+    }
+  }, [refreshTrigger]);
 
   if (loading) {
     return (

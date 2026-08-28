@@ -185,6 +185,13 @@ export const Home = () => {
     setHistoryTargetLocation(mapLoc);
   };
 
+  const [reportRefreshKey, setReportRefreshKey] = useState(0);
+
+  const handleReportSuccess = () => {
+    fetchMapData();
+    setReportRefreshKey((prev) => prev + 1);
+  };
+
   return (
     <div className="relative flex flex-col min-h-[calc(100vh-52px)] bg-[#fafaf9] dark:bg-[#0a0a0b] transition-colors pb-14 lg:pb-0">
       {/* Network Status Toast */}
@@ -361,7 +368,7 @@ export const Home = () => {
         onClose={() => setIsReportModalOpen(false)}
         selectedLocation={selectedLocation}
         onClearSelection={() => setSelectedLocation(null)}
-        onReportSuccess={fetchMapData}
+        onReportSuccess={handleReportSuccess}
         allLocations={locations}
         onSelectLocation={handleSelectLocation}
         onNearMe={handleNearMe}
@@ -381,7 +388,7 @@ export const Home = () => {
 
       {/* 2. Below-the-Map Live Community Activity & Disclaimer */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full space-y-6">
-        <RecentReportsTicker />
+        <RecentReportsTicker refreshTrigger={reportRefreshKey} />
         <DisclaimerBox />
       </section>
     </div>

@@ -1,4 +1,4 @@
-import fs from 'fs';
+﻿import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
@@ -105,14 +105,9 @@ export async function handleApiRequest(req, res) {
     return res.status(200).end();
   }
 
-  let pathname = '';
-  if (req.query && req.query.path) {
-    const pathArr = Array.isArray(req.query.path) ? req.query.path : [req.query.path];
-    pathname = '/' + pathArr.join('/');
-  } else {
-    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    pathname = url.pathname.replace(/^\/api/, '');
-  }
+  const rawUrl = req.url || '/';
+  const urlObj = new URL(rawUrl, `http://${req.headers['host'] || 'localhost'}`);
+  let pathname = urlObj.pathname.replace(/^\/api/, '').replace(/\/$/, '');
   if (!pathname || pathname === '') pathname = '/';
 
   // Ensure DB connection
@@ -307,12 +302,12 @@ export async function handleApiRequest(req, res) {
         }
       }
 
-      // Save report in MongoDB Atlas
+      // Save report in MongoDB Atlas ALWAYS when db is connected
       let savedReport = null;
-      if (db && dbLocationId) {
+      if (db) {
         try {
           savedReport = await ReportModel.create({
-            locationId: dbLocationId,
+            locationId: dbLocationId || matched?._id || matched?.slug || 'unknown',
             status: status || 'available',
             duration: duration || 'just_now',
             customMinutes: customMinutes || null,
@@ -380,7 +375,7 @@ export async function handleApiRequest(req, res) {
       if (db) {
         try {
           const allDbLocs = await LocationModel.find().lean();
-          allDbLocs.forEach(l => {
+          allDbLocs.forEach((l) => {
             dbLocationsMap.set(String(l._id), l);
             if (l.slug) dbLocationsMap.set(l.slug, l);
           });
@@ -501,7 +496,7 @@ export async function handleApiRequest(req, res) {
 
     // 7. Locations: Search
     if (pathname === '/locations/search') {
-      const q = (url.searchParams.get('q') || '').toLowerCase().trim();
+      const q = (urlObj.searchParams.get('q') || '').toLowerCase().trim();
       if (!q) {
         return res.status(200).json({ success: true, count: 0, data: [] });
       }
@@ -524,7 +519,7 @@ export async function handleApiRequest(req, res) {
 
     // 8. Locations: List with optional division filter
     if (pathname === '/locations') {
-      const division = url.searchParams.get('division');
+      const division = urlObj.searchParams.get('division');
       let results = defaultLocations;
       if (division && division !== 'All') {
         results = defaultLocations.filter(
