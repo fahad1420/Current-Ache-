@@ -9,9 +9,10 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.vercel
 *.png
 *.jpg
+!client/public/*.png
+!client/public/*.jpg
 screenshots/
 screenshots_v2/
 final_visuals/
