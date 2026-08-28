@@ -1,4 +1,4 @@
-﻿import mongoose from 'mongoose';
+import mongoose from 'mongoose';
 import dns from 'dns';
 
 // Fallback DNS to Google & Cloudflare DNS in case local/lambda DNS fails on SRV
@@ -6,9 +6,7 @@ try {
   dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
 } catch (e) {}
 
-const MONGODB_URI =
-  process.env.MONGODB_URI ||
-  'mongodb+srv://fahadhossain04_db_user:VdxUrHygIFzvjLob@cluster0.qnigurs.mongodb.net/electricity_status_bd?retryWrites=true&w=majority&appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || '';
 
 let cached = global.mongoose;
 if (!cached) {
@@ -16,6 +14,10 @@ if (!cached) {
 }
 
 export async function connectToDatabase() {
+  if (!MONGODB_URI) {
+    return null;
+  }
+
   if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
   }

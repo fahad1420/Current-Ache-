@@ -155,7 +155,7 @@ export const Home = () => {
         } else if (error.code === 2) { // POSITION_UNAVAILABLE
           addToast(
             isBn
-              ? 'আপনার ফোনের জিপিএস/লোকেশন বন্ধ আছে। সেটি চালু করুন অথবা সার্চ বক্সে এলাকার নাম লিখুন।'
+              ? 'আপনার ফোনের জিপিএস/লোকেশন বন্ধ আছে, সেটি খুলুন অথবা সার্চ বক্সে এলাকার নাম লিখুন'
               : "Your phone's GPS/location is turned off. Please turn it on, or enter an area name in the search box.",
             'error'
           );
@@ -169,7 +169,7 @@ export const Home = () => {
         } else {
           addToast(
             isBn
-              ? 'আপনার ফোনের জিপিএস/লোকেশন বন্ধ আছে। সেটি চালু করুন অথবা সার্চ বক্সে এলাকার নাম লিখুন।'
+              ? 'আপনার ফোনের জিপিএস/লোকেশন বন্ধ আছে, সেটি খুলুন অথবা সার্চ বক্সে এলাকার নাম লিখুন'
               : "Your phone's GPS/location is turned off. Please turn it on, or enter an area name in the search box.",
             'error'
           );
