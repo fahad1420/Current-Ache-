@@ -1,0 +1,193 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background Gradients -->
+    <radialGradient id="bgGrad" cx="50%" cy="30%" r="80%" fx="50%" fy="20%">
+      <stop offset="0%" stop-color="#1A1311" />
+      <stop offset="45%" stop-color="#0E0F13" />
+      <stop offset="100%" stop-color="#08090C" />
+    </radialGradient>
+    
+    <radialGradient id="glowOrange" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF5500" stop-opacity="0.35" />
+      <stop offset="60%" stop-color="#FF7700" stop-opacity="0.10" />
+      <stop offset="100%" stop-color="#FF5500" stop-opacity="0" />
+    </radialGradient>
+
+    <radialGradient id="topGlow" cx="20%" cy="10%" r="60%">
+      <stop offset="0%" stop-color="#FF6A00" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#FF6A00" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Electric Bolt Gradients -->
+    <linearGradient id="boltGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF066" />
+      <stop offset="40%" stop-color="#FFA200" />
+      <stop offset="100%" stop-color="#FF4400" />
+    </linearGradient>
+
+    <linearGradient id="boltGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="50%" stop-color="#FFE17D" />
+      <stop offset="100%" stop-color="#FF7A00" />
+    </linearGradient>
+
+    <!-- UI Card Glass Gradients -->
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#262322" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#15151A" stop-opacity="0.65" />
+    </linearGradient>
+
+    <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF5500" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#FFAA00" stop-opacity="0.15" />
+    </linearGradient>
+
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6600" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#554433" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#FF8800" stop-opacity="0.2" />
+    </linearGradient>
+
+    <!-- Glow Filter -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="32" result="blur2" />
+      <feComposite in="SourceGraphic" in2="blur2" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Base Dark Canvas -->
+  <rect width="1200" height="630" fill="url(#bgGrad)" />
+
+  <!-- Background Decorative Grid Lines -->
+  <g opacity="0.07" stroke="#FFAA66" stroke-width="1">
+    <line x1="0" y1="90" x2="1200" y2="90" />
+    <line x1="0" y1="180" x2="1200" y2="180" />
+    <line x1="0" y1="270" x2="1200" y2="270" />
+    <line x1="0" y1="360" x2="1200" y2="360" />
+    <line x1="0" y1="450" x2="1200" y2="450" />
+    <line x1="0" y1="540" x2="1200" y2="540" />
+
+    <line x1="150" y1="0" x2="150" y2="630" />
+    <line x1="300" y1="0" x2="300" y2="630" />
+    <line x1="450" y1="0" x2="450" y2="630" />
+    <line x1="600" y1="0" x2="600" y2="630" />
+    <line x1="750" y1="0" x2="750" y2="630" />
+    <line x1="900" y1="0" x2="900" y2="630" />
+    <line x1="1050" y1="0" x2="1050" y2="630" />
+  </g>
+
+  <!-- Ambient Light Halos -->
+  <circle cx="280" cy="180" r="380" fill="url(#topGlow)" />
+  <circle cx="980" cy="315" r="320" fill="url(#glowOrange)" />
+  <circle cx="600" cy="315" r="280" fill="url(#glowOrange)" opacity="0.5" />
+
+  <!-- Abstract Electric Grid Waves / Network Nodes in Background -->
+  <g opacity="0.18" stroke="#FF7700" stroke-width="1.5" fill="none">
+    <path d="M 750,520 Q 880,340 1020,400 T 1200,280" />
+    <path d="M 680,580 Q 840,420 980,480 T 1200,360" />
+    <path d="M 820,120 Q 940,240 1080,180 T 1200,220" />
+  </g>
+  
+  <!-- Subtle Glowing Power Grid Nodes -->
+  <g fill="#FF8800" opacity="0.35">
+    <circle cx="750" cy="520" r="4" />
+    <circle cx="880" cy="340" r="5" />
+    <circle cx="1020" cy="400" r="6" />
+    <circle cx="940" cy="240" r="4" />
+    <circle cx="1080" cy="180" r="5" />
+  </g>
+
+  <!-- RIGHT SIDE: HERO 3D-STYLE BRAND EMBLEM -->
+  <g transform="translate(860, 290)">
+    <!-- Outer Glow Rings -->
+    <circle cx="0" cy="0" r="180" fill="none" stroke="#FF5500" stroke-width="2" opacity="0.15" stroke-dasharray="8 6" />
+    <circle cx="0" cy="0" r="150" fill="none" stroke="#FFAA00" stroke-width="1.5" opacity="0.25" />
+    <circle cx="0" cy="0" r="120" fill="#FF5500" opacity="0.08" filter="url(#softGlow)" />
+    
+    <!-- Squircle Shield Container -->
+    <rect x="-105" y="-105" width="210" height="210" rx="46" fill="url(#cardGrad)" stroke="url(#borderGrad)" stroke-width="3" filter="url(#glow)" />
+    
+    <!-- High-Impact Iconic Lightning Bolt -->
+    <path d="M 12,-72 L -52,-2 L 2,-2 L -16,72 L 56,0 L -2,0 Z" fill="url(#boltGrad)" filter="url(#glow)" />
+    <path d="M 12,-72 L -52,-2 L 2,-2 L -16,72 L 56,0 L -2,0 Z" fill="url(#boltGrad2)" opacity="0.9" />
+
+    <!-- Pulse Dot Badge on Shield -->
+    <g transform="translate(68, -68)">
+      <circle cx="0" cy="0" r="14" fill="#0E0F13" stroke="#22C55E" stroke-width="2" />
+      <circle cx="0" cy="0" r="6" fill="#22C55E" />
+    </g>
+  </g>
+
+  <!-- LEFT SIDE: BRAND TITLE & METADATA -->
+  
+  <!-- 1. Live Community Status Badge -->
+  <g transform="translate(85, 95)">
+    <rect x="0" y="0" width="310" height="42" rx="21" fill="url(#badgeGrad)" stroke="#FF6A00" stroke-width="1.5" stroke-opacity="0.5" />
+    <!-- Glowing Status Indicator Dot -->
+    <circle cx="24" cy="21" r="5" fill="#22C55E" />
+    <circle cx="24" cy="21" r="9" fill="none" stroke="#22C55E" stroke-width="1.5" opacity="0.6" />
+    <text x="44" y="27" font-family="'Hind Siliguri', 'Segoe UI', 'Arial', sans-serif" font-size="15" font-weight="700" fill="#FFAA44" letter-spacing="0.5">
+      লাইভ বিদ্যুৎ স্ট্যাটাস বাংলাদেশ
+    </text>
+  </g>
+
+  <!-- 2. Main Bengali Typography: "কারেন্ট আছে?" -->
+  <!-- Subtle Text Glow Effect -->
+  <text x="85" y="245" font-family="'Hind Siliguri', 'Segoe UI', 'Arial', sans-serif" font-size="86" font-weight="800" fill="#FF5500" opacity="0.3" filter="url(#glow)">
+    কারেন্ট আছে?
+  </text>
+  <!-- Primary Sharp Text -->
+  <text x="85" y="245" font-family="'Hind Siliguri', 'Segoe UI', 'Arial', sans-serif" font-size="86" font-weight="800" fill="#FFFFFF" letter-spacing="-0.5">
+    কারেন্ট আছে?
+  </text>
+
+  <!-- 3. Subtitle Description in Bengali -->
+  <text x="85" y="325" font-family="'Hind Siliguri', 'Segoe UI', 'Arial', sans-serif" font-size="25" font-weight="600" fill="#E2E8F0">
+    সারাদেশের বিদ্যুৎ ও লোডশেডিং-এর রিয়েল-টাইম কমিউনিটি স্ট্যাটাস
+  </text>
+  
+  <text x="85" y="365" font-family="'Hind Siliguri', 'Segoe UI', 'Arial', sans-serif" font-size="17" font-weight="500" fill="#94A3B8">
+    ৬৪ জেলার ৫৯৩+ এলাকা ও থানার বিদ্যুৎ পরিস্থিতি এবং লাইভ ম্যাপ আপডেট
+  </text>
+
+  <!-- 4. Feature Pills Grid -->
+  <g transform="translate(85, 430)">
+    <!-- Pill 1: Real-time Reports -->
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="190" height="46" rx="14" fill="#181920" stroke="#333540" stroke-width="1.5" />
+      <text x="22" y="29" font-size="17">⚡</text>
+      <text x="50" y="29" font-family="'Hind Siliguri', 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#F1F5F9">লাইভ রিপোর্ট</text>
+    </g>
+
+    <!-- Pill 2: Live Map -->
+    <g transform="translate(205, 0)">
+      <rect x="0" y="0" width="205" height="46" rx="14" fill="#181920" stroke="#333540" stroke-width="1.5" />
+      <text x="20" y="29" font-size="17">🗺️</text>
+      <text x="50" y="29" font-family="'Hind Siliguri', 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#F1F5F9">ইন্টারেক্টিভ ম্যাপ</text>
+    </g>
+
+    <!-- Pill 3: Schedule & History -->
+    <g transform="translate(425, 0)">
+      <rect x="0" y="0" width="215" height="46" rx="14" fill="#181920" stroke="#333540" stroke-width="1.5" />
+      <text x="20" y="29" font-size="17">🕒</text>
+      <text x="50" y="29" font-family="'Hind Siliguri', 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#F1F5F9">লোডশেডিং সূচি</text>
+    </g>
+  </g>
+
+  <!-- 5. Bottom Brand & Modern Indicator Bar -->
+  <g transform="translate(85, 545)">
+    <line x1="0" y1="0" x2="655" y2="0" stroke="#333644" stroke-width="1" opacity="0.6" />
+    <text x="0" y="32" font-family="'Segoe UI', 'Inter', -apple-system, sans-serif" font-size="15" font-weight="700" fill="#FF8800" letter-spacing="1">
+      CURRENT ACHE BD
+    </text>
+    <text x="160" y="32" font-family="'Segoe UI', 'Inter', -apple-system, sans-serif" font-size="14" font-weight="500" fill="#64748B">
+      • Real-Time Electricity Outage &amp; Grid Tracker
+    </text>
+  </g>
+
+</svg>

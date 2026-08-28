@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Allow: /og-cover.png
+Allow: /og-cover.svg
+Allow: /favicon.svg
+Allow: /favicon.ico
+Allow: /apple-touch-icon.png
+Allow: /icon-192.png
+Allow: /icon-512.png
