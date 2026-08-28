@@ -6,15 +6,14 @@ try {
   dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
 } catch (e) {}
 
-const MONGODB_URI = process.env.MONGODB_URI || '';
-
 let cached = global.mongoose;
 if (!cached) {
   cached = global.mongoose = { conn: null, promise: null };
 }
 
 export async function connectToDatabase() {
-  if (!MONGODB_URI) {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
     return null;
   }
 
@@ -24,13 +23,14 @@ export async function connectToDatabase() {
 
   if (!cached.promise) {
     const opts = {
+      dbName: process.env.MONGODB_DB_NAME || 'electricity_status_bd',
       bufferCommands: false,
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 5000,
-      family: 4,
+      maxPoolSize: 10,
     };
     cached.promise = mongoose
-      .connect(MONGODB_URI, opts)
+      .connect(uri, opts)
       .then((m) => {
         return m;
       })
