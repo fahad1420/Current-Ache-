@@ -1,5 +1,6 @@
 ﻿import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 // Read verified official dataset
 let defaultLocations = [];
@@ -17,24 +18,32 @@ try {
   defaultLocations = [];
 }
 
-const inMemoryReports = [
-  {
-    _id: 'rep_init_1',
-    locationId: { nameBn: 'মিরপুর', nameEn: 'Mirpur', districtBn: 'ঢাকা', district: 'Dhaka' },
-    status: 'available',
-    locality: 'সেক্টর ১',
-    createdAt: new Date(Date.now() - 15 * 60000).toISOString()
-  },
-  {
-    _id: 'rep_init_2',
-    locationId: { nameBn: 'উত্তরা', nameEn: 'Uttara', districtBn: 'ঢাকা', district: 'Dhaka' },
-    status: 'available',
-    locality: 'সেক্টর ৭',
-    createdAt: new Date(Date.now() - 45 * 60000).toISOString()
-  }
-];
+// Global cross-request in-memory persistence store
+if (!global.__CURRENT_ACHE_REPORTS) {
+  global.__CURRENT_ACHE_REPORTS = [
+    {
+      _id: 'rep_init_1',
+      locationId: { nameBn: 'মিরপুর', nameEn: 'Mirpur', districtBn: 'ঢাকা', district: 'Dhaka' },
+      status: 'available',
+      locality: 'সেক্টর ১',
+      createdAt: new Date(Date.now() - 15 * 60000).toISOString()
+    },
+    {
+      _id: 'rep_init_2',
+      locationId: { nameBn: 'উত্তরা', nameEn: 'Uttara', districtBn: 'ঢাকা', district: 'Dhaka' },
+      status: 'available',
+      locality: 'সেক্টর ৭',
+      createdAt: new Date(Date.now() - 45 * 60000).toISOString()
+    }
+  ];
+}
 
-const inMemorySchedules = [];
+if (!global.__CURRENT_ACHE_SCHEDULES) {
+  global.__CURRENT_ACHE_SCHEDULES = [];
+}
+
+const inMemoryReports = global.__CURRENT_ACHE_REPORTS;
+const inMemorySchedules = global.__CURRENT_ACHE_SCHEDULES;
 
 // Helper to parse request body in serverless
 export async function parseRequestBody(req) {
@@ -56,6 +65,14 @@ export async function parseRequestBody(req) {
   });
 }
 
+// Simple JWT generator
+function generateToken(payload, secret) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + 7 * 86400 })).toString('base64url');
+  const signature = crypto.createHmac('sha256', secret).update(`${header}.${body}`).digest('base64url');
+  return `${header}.${body}.${signature}`;
+}
+
 export async function handleApiRequest(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -64,6 +81,8 @@ export async function handleApiRequest(req, res) {
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   );
+  // Ensure real-time status is NEVER cached by intermediate proxies
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -85,7 +104,58 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 2. Reports: Submit (POST /api/reports)
+    // 2. Admin Authentication (POST /api/admin/login or POST /api/auth/login)
+    if ((pathname === '/admin/login' || pathname === '/auth/login') && req.method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { username, password } = body;
+
+      if (!username || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'ব্যবহারকারীর নাম ও পাসওয়ার্ড প্রদান করুন।',
+          messageEn: 'Username and password required.',
+        });
+      }
+
+      const envUser = process.env.ADMIN_USERNAME || 'admin';
+      const envPass = process.env.ADMIN_PASSWORD || 'currentBD2026!';
+      const jwtSecret = process.env.JWT_SECRET || 'electricity-status-bd-super-secret-jwt-key-2026';
+
+      if (username === envUser && password === envPass) {
+        const token = generateToken({ username, role: 'admin' }, jwtSecret);
+        return res.status(200).json({
+          success: true,
+          message: 'লগইন সফল হয়েছে।',
+          token,
+          admin: {
+            username,
+            role: 'admin',
+          },
+        });
+      } else {
+        return res.status(401).json({
+          success: false,
+          message: 'ভুল ব্যবহারকারীর নাম অথবা পাসওয়ার্ড।',
+          messageEn: 'Invalid username or password.',
+        });
+      }
+    }
+
+    // 3. Admin Reports Inspection (GET /api/admin/reports)
+    if (pathname === '/admin/reports' && req.method === 'GET') {
+      return res.status(200).json({
+        success: true,
+        total: inMemoryReports.length,
+        page: 1,
+        pages: 1,
+        data: inMemoryReports.map(r => ({
+          ...r,
+          locationId: r.locationId || { nameBn: 'এলাকা', nameEn: 'Area', districtBn: 'ঢাকা', divisionBn: 'ঢাকা' }
+        }))
+      });
+    }
+
+    // 4. Reports: Submit (POST /api/reports)
     if ((pathname === '/reports' || pathname.startsWith('/reports')) && req.method === 'POST') {
       const body = await parseRequestBody(req);
       const { locationId, locationName, district, division, latitude, longitude, isGpsCustom, status, duration, locality, customMinutes } = body;
@@ -139,7 +209,16 @@ export async function handleApiRequest(req, res) {
 
       const newReport = {
         _id: `rep_${Date.now()}`,
-        locationId: matched || { nameBn: locationName || 'এলাকা', nameEn: 'Area', districtBn: 'ঢাকা', district: 'Dhaka' },
+        locationId: matched ? {
+          _id: matched._id,
+          nameBn: matched.nameBn,
+          nameEn: matched.nameEn,
+          districtBn: matched.districtBn,
+          district: matched.district,
+          divisionBn: matched.divisionBn,
+          division: matched.division,
+          slug: matched.slug
+        } : { nameBn: locationName || 'এলাকা', nameEn: 'Area', districtBn: 'ঢাকা', district: 'Dhaka' },
         status: status || 'available',
         duration: duration || 'just_now',
         customMinutes: customMinutes || null,
@@ -148,7 +227,7 @@ export async function handleApiRequest(req, res) {
       };
 
       inMemoryReports.unshift(newReport);
-      if (inMemoryReports.length > 200) inMemoryReports.pop();
+      if (inMemoryReports.length > 500) inMemoryReports.pop();
 
       return res.status(201).json({
         success: true,
@@ -157,16 +236,16 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 3. Reports: Recent ticker (GET /api/reports/recent or GET /api/reports)
+    // 5. Reports: Recent ticker (GET /api/reports/recent or GET /api/reports)
     if (pathname === '/reports/recent' || pathname === '/reports') {
       return res.status(200).json({
         success: true,
         count: inMemoryReports.length,
-        data: inMemoryReports.slice(0, 15)
+        data: inMemoryReports.slice(0, 20)
       });
     }
 
-    // 4. Locations: Map Status
+    // 6. Locations: Map Status
     if (pathname === '/locations/map-status') {
       let availableSummary = 0;
       let unavailableSummary = 0;
@@ -191,7 +270,7 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 5. Locations: Search
+    // 7. Locations: Search
     if (pathname === '/locations/search') {
       const q = (url.searchParams.get('q') || '').toLowerCase().trim();
       if (!q) {
@@ -211,7 +290,7 @@ export async function handleApiRequest(req, res) {
       return res.status(200).json({ success: true, count: results.length, data: results });
     }
 
-    // 6. Locations: List with optional division filter
+    // 8. Locations: List with optional division filter
     if (pathname === '/locations') {
       const division = url.searchParams.get('division');
       let results = defaultLocations;
@@ -223,7 +302,7 @@ export async function handleApiRequest(req, res) {
       return res.status(200).json({ success: true, count: results.length, data: results });
     }
 
-    // 7. Locations: Single by ID or Slug
+    // 9. Locations: Single by ID or Slug
     if (pathname.startsWith('/locations/') && !pathname.endsWith('/history')) {
       const idOrSlug = pathname.replace('/locations/', '');
       const matched = defaultLocations.find(l => l._id === idOrSlug || l.slug === idOrSlug);
@@ -240,7 +319,7 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 8. Locations: History
+    // 10. Locations: History
     if (pathname.startsWith('/locations/') && pathname.endsWith('/history')) {
       const idOrSlug = pathname.replace('/locations/', '').replace('/history', '');
       const matched = defaultLocations.find(l => l._id === idOrSlug || l.slug === idOrSlug);
@@ -259,7 +338,7 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 9. Stats
+    // 11. Stats
     if (pathname === '/stats') {
       const availCount = defaultLocations.filter(l => l.status === 'available').length;
       const unavailCount = defaultLocations.filter(l => l.status === 'unavailable').length;
@@ -276,7 +355,7 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 10. Schedules
+    // 12. Schedules
     if (pathname.startsWith('/schedules/location/')) {
       const locId = pathname.replace('/schedules/location/', '');
       const matchedSchedules = inMemorySchedules.filter(s => s.locationId === locId);
