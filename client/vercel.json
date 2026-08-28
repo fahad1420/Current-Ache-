@@ -1,22 +1,6 @@
 ﻿{
   "rewrites": [
     {
-      "source": "/api/admin/:match*",
-      "destination": "/api/admin"
-    },
-    {
-      "source": "/api/auth/:match*",
-      "destination": "/api/auth"
-    },
-    {
-      "source": "/api/reports/:match*",
-      "destination": "/api/reports"
-    },
-    {
-      "source": "/api/locations/:match*",
-      "destination": "/api/locations"
-    },
-    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
