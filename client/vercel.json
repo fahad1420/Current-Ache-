@@ -1,6 +1,38 @@
 {
   "rewrites": [
     {
+      "source": "/api/admin/login",
+      "destination": "/api/admin"
+    },
+    {
+      "source": "/api/admin/reports",
+      "destination": "/api/admin?type=reports"
+    },
+    {
+      "source": "/api/admin/reports/:id/flag",
+      "destination": "/api/admin?action=flag&id=:id"
+    },
+    {
+      "source": "/api/admin/reports/:id",
+      "destination": "/api/admin?action=delete&id=:id"
+    },
+    {
+      "source": "/api/locations/reported",
+      "destination": "/api/locations?type=reported"
+    },
+    {
+      "source": "/api/locations/:id/history",
+      "destination": "/api/locations?history=:id"
+    },
+    {
+      "source": "/api/schedules/location/:id",
+      "destination": "/api/schedules?location=:id"
+    },
+    {
+      "source": "/api/reports/recent",
+      "destination": "/api/reports"
+    },
+    {
       "source": "/((?!api/.*).*)",
       "destination": "/index.html"
     }
