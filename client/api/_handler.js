@@ -1,4 +1,4 @@
-﻿import fs from 'fs';
+import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
@@ -105,8 +105,14 @@ export async function handleApiRequest(req, res) {
     return res.status(200).end();
   }
 
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  let pathname = url.pathname.replace(/^\/api/, '');
+  let pathname = '';
+  if (req.query && req.query.path) {
+    const pathArr = Array.isArray(req.query.path) ? req.query.path : [req.query.path];
+    pathname = '/' + pathArr.join('/');
+  } else {
+    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    pathname = url.pathname.replace(/^\/api/, '');
+  }
   if (!pathname || pathname === '') pathname = '/';
 
   // Ensure DB connection
