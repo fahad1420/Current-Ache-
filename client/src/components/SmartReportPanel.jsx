@@ -46,13 +46,13 @@ export const SmartReportPanel = ({
   if (!isOpen) return null;
 
   const durationOptions = [
-    { label: t('durJustNow'), value: 'just_now' },
-    { label: t('dur15m'), value: '15_min' },
-    { label: t('dur30m'), value: '30_min' },
-    { label: t('dur1h'), value: '1_hour' },
-    { label: t('dur2h'), value: '2_hours' },
-    { label: t('dur4h'), value: '4_hours_plus' },
-    { label: t('durCustom'), value: 'custom' },
+    { label: t('durJustNow') || 'এখনই', value: 'just_now' },
+    { label: t('dur15m') || '১৫ মিনিট', value: '15_min' },
+    { label: t('dur30m') || '৩০ মিনিট', value: '30_min' },
+    { label: t('dur1h') || '১ ঘণ্টা', value: '1_hour' },
+    { label: t('dur2h') || '২ ঘণ্টা', value: '2_hours' },
+    { label: t('dur4h') || '৪+ ঘণ্টা', value: '4_hours_plus' },
+    { label: t('durCustom') || 'কাস্টম', value: 'custom' },
   ];
 
   const searchResults = searchQuery.trim()
@@ -67,7 +67,7 @@ export const SmartReportPanel = ({
 
   const handleSendReport = async () => {
     if (!selectedLocation) {
-      addToast(t('selectAreaFirstError'), 'error');
+      addToast(t('selectAreaFirstError') || 'অনুগ্রহ করে প্রথমে এলাকা নির্বাচন করুন।', 'error');
       return;
     }
 
@@ -87,16 +87,16 @@ export const SmartReportPanel = ({
       const res = await api.post('/reports', {
         locationId: selectedLocation._id || selectedLocation.slug,
         locationName: selectedLocation.nameBn || selectedLocation.nameEn,
-        district: selectedLocation.district,
-        division: selectedLocation.division,
+        district: selectedLocation.district || 'বাংলাদেশ',
+        division: selectedLocation.division || 'Dhaka',
         latitude: selectedLocation.latitude,
         longitude: selectedLocation.longitude,
-        isGpsCustom: Boolean(selectedLocation.isGpsCustom),
+        isGpsCustom: Boolean(selectedLocation.isGpsCustom || selectedLocation.isMapClick),
         status,
         duration: duration || 'just_now',
         locality: locality.trim() || undefined,
         customMinutes: calculatedCustomMinutes,
-        source: 'mobile_web',
+        source: 'web',
       });
 
       if (res.data?.success) {
@@ -110,12 +110,12 @@ export const SmartReportPanel = ({
         if (onReportSuccess) onReportSuccess();
         if (onClose) onClose();
       } else {
-        addToast(res.data?.message || t('reportFailedToast'), 'error');
+        addToast(res.data?.message || t('reportFailedToast') || 'রিপোর্ট পাঠানো যায়নি। আবার চেষ্টা করুন।', 'error');
       }
     } catch (err) {
       console.error('Report submission error:', err);
       addToast(
-        err.response?.data?.message || t('reportFailedToast'),
+        err.response?.data?.message || t('reportFailedToast') || 'রিপোর্ট পাঠানো যায়নি। আবার চেষ্টা করুন।',
         'error'
       );
     } finally {
@@ -123,18 +123,21 @@ export const SmartReportPanel = ({
     }
   };
 
+  const isLocationSourceGps = selectedLocation?.isGpsDetected;
+  const isLocationSourceMap = selectedLocation?.isMapClick;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center animate-in fade-in duration-150 p-0 sm:p-4">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-stone-900/50 dark:bg-black/80 backdrop-blur-xs transition-opacity"
         onClick={onClose}
       />
 
-      {/* Modal Card / Bottom Sheet */}
+      {/* Modal Card / Bottom Sheet (Unified across mobile, tablet, and desktop) */}
       <div className="relative w-full max-w-lg bg-white dark:bg-[#111214] shadow-2xl rounded-t-3xl sm:rounded-3xl border border-stone-200 dark:border-zinc-800 flex flex-col max-h-[92vh] sm:max-h-[85vh] z-10 animate-in slide-in-from-bottom-4 duration-200 overflow-hidden">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-stone-100 dark:border-zinc-800 flex items-center justify-between shrink-0">
+        <div className="p-4 sm:p-5 border-b border-stone-100 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-stone-50/40 dark:bg-[#151619]">
           <div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
@@ -185,10 +188,16 @@ export const SmartReportPanel = ({
                     <span className="font-extrabold text-sm sm:text-base text-stone-900 dark:text-zinc-100">
                       {isBn ? selectedLocation.nameBn : selectedLocation.nameEn}
                     </span>
-                    {selectedLocation.isGpsDetected && (
+                    {isLocationSourceGps && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
                         <Navigation className="w-2.5 h-2.5" />
-                        {isBn ? 'GPS' : 'GPS'}
+                        {isBn ? 'GPS লোকেশন' : 'GPS Location'}
+                      </span>
+                    )}
+                    {isLocationSourceMap && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                        <MapPin className="w-2.5 h-2.5" />
+                        {isBn ? 'ম্যাপে চিহ্নিত' : 'Map Pinned'}
                       </span>
                     )}
                   </div>
@@ -217,7 +226,6 @@ export const SmartReportPanel = ({
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={isBn ? 'উপজেলা বা এলাকার নাম দিয়ে খুঁজুন...' : 'Search upazila or area name...'}
                     className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-stone-50 dark:bg-zinc-800/80 border border-stone-200 dark:border-zinc-700 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-stone-900 dark:text-zinc-100 placeholder:text-stone-400 font-medium"
-                    autoFocus
                   />
                 </div>
 

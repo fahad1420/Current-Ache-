@@ -1,4 +1,5 @@
-﻿import { ElectricityReport } from '../models/ElectricityReport.js';
+﻿import mongoose from 'mongoose';
+import { ElectricityReport } from '../models/ElectricityReport.js';
 import { Location } from '../models/Location.js';
 import { hashIp } from '../utils/hashIp.js';
 import { checkReportCooldown } from '../services/spamProtection.js';
@@ -9,14 +10,28 @@ import { calculateLocationStatus } from '../services/statusCalculator.js';
  */
 export const createReport = async (req, res, next) => {
   try {
-    const { locationId, status, duration, customMinutes, locality, clientFingerprint, source } = req.body;
+    const {
+      locationId,
+      locationName,
+      district,
+      division,
+      latitude,
+      longitude,
+      isGpsCustom,
+      status,
+      duration,
+      customMinutes,
+      locality,
+      clientFingerprint,
+      source,
+    } = req.body;
 
     // Validation
-    if (!locationId) {
+    if (!locationId && (!latitude || !longitude)) {
       return res.status(400).json({
         success: false,
         message: 'এলাকা নির্বাচন করা বাধ্যতামূলক।',
-        messageEn: 'Location ID is required.',
+        messageEn: 'Location ID or coordinates required.',
       });
     }
 
@@ -39,9 +54,50 @@ export const createReport = async (req, res, next) => {
       }
     }
 
-    // Verify location exists
-    const location = await Location.findById(locationId);
-    if (!location || !location.isActive) {
+    // Robust Location Resolution (ById, BySlug, ByCoordinates, or Create New)
+    let location = null;
+
+    if (locationId && mongoose.isValidObjectId(locationId)) {
+      location = await Location.findById(locationId);
+    }
+
+    if (!location && locationId) {
+      location = await Location.findOne({
+        $or: [{ slug: locationId }, { nameEn: locationId }, { nameBn: locationId }],
+      });
+    }
+
+    // If still not found and coordinates exist (GPS / Map-Click):
+    if (!location && (latitude || longitude || isGpsCustom)) {
+      const parsedLat = parseFloat(latitude) || 23.8103;
+      const parsedLng = parseFloat(longitude) || 90.4125;
+      const generatedSlug = `loc-${parsedLat.toFixed(4)}-${parsedLng.toFixed(4)}`;
+
+      location = await Location.findOne({ slug: generatedSlug });
+      if (!location) {
+        location = await Location.create({
+          nameBn: locationName || `এলাকা (${parsedLat.toFixed(2)}, ${parsedLng.toFixed(2)})`,
+          nameEn: locationName || `Area (${parsedLat.toFixed(2)}, ${parsedLng.toFixed(2)})`,
+          division: division || 'Dhaka',
+          divisionBn: division === 'Chattogram' ? 'চট্টগ্রাম' : 'ঢাকা',
+          district: district || 'ঢাকা',
+          districtBn: district || 'ঢাকা',
+          slug: generatedSlug,
+          latitude: parsedLat,
+          longitude: parsedLng,
+          type: 'custom',
+          isActive: true,
+          status: status,
+        });
+      }
+    }
+
+    if (!location) {
+      // Fallback: lookup default location or create
+      location = await Location.findOne({ isActive: true });
+    }
+
+    if (!location) {
       return res.status(404).json({
         success: false,
         message: 'সঠিক এলাকা পাওয়া যায়নি বা এটি নিষ্ক্রিয় রয়েছে।',
@@ -54,7 +110,7 @@ export const createReport = async (req, res, next) => {
     const ipHash = hashIp(clientIp);
 
     // Spam / Cooldown protection
-    const cooldownCheck = await checkReportCooldown(locationId, ipHash);
+    const cooldownCheck = await checkReportCooldown(String(location._id), ipHash);
     if (!cooldownCheck.allowed) {
       return res.status(429).json({
         success: false,
@@ -68,7 +124,7 @@ export const createReport = async (req, res, next) => {
     const cleanLocality = (locality || '').trim().slice(0, 100);
 
     const newReport = await ElectricityReport.create({
-      locationId,
+      locationId: location._id,
       status,
       duration: duration || 'just_now',
       customMinutes: validatedCustomMinutes,
@@ -78,8 +134,14 @@ export const createReport = async (req, res, next) => {
       source: source === 'mobile_web' ? 'mobile_web' : 'web',
     });
 
-    // Calculate immediate updated status for instant frontend update
-    const updatedStatus = await calculateLocationStatus(locationId);
+    // Update location status in database indefinitely
+    await Location.findByIdAndUpdate(location._id, {
+      status: status,
+      lastReportAt: new Date(),
+    });
+
+    // Calculate immediate updated status
+    const updatedStatus = await calculateLocationStatus(location._id);
 
     res.status(201).json({
       success: true,
@@ -98,6 +160,7 @@ export const createReport = async (req, res, next) => {
       },
     });
   } catch (error) {
+    console.error('createReport error:', error);
     next(error);
   }
 };
@@ -115,7 +178,6 @@ export const getRecentReports = async (req, res, next) => {
       .populate('locationId', 'nameBn nameEn divisionBn division districtBn district upazilaBn upazila slug')
       .lean();
 
-    // Sanitize response to ensure NO IP or personal info is ever leaked
     const sanitizedReports = reports
       .filter(r => r.locationId)
       .map(r => ({
@@ -132,7 +194,7 @@ export const getRecentReports = async (req, res, next) => {
           divisionBn: r.locationId.divisionBn,
           districtBn: r.locationId.districtBn,
           slug: r.locationId.slug,
-        }
+        },
       }));
 
     res.json({

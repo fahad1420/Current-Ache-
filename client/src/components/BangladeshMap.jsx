@@ -1,10 +1,11 @@
-﻿import React, { useEffect, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet.markercluster';
-import { Zap, PlugZap, HelpCircle, ArrowRight, Navigation } from 'lucide-react';
+import { Zap, PlugZap, HelpCircle, ArrowRight, Navigation, MapPin } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { resolveGpsLocation } from '../utils/geolocation';
 
 // Geographic center and bounds of Bangladesh
 const BANGLADESH_CENTER = [23.8103, 90.4125];
@@ -12,6 +13,19 @@ const BANGLADESH_BOUNDS = [
   [20.0, 87.5],
   [27.0, 93.0],
 ];
+
+// Map Event Listener for Map-Click location picking (Problem 5)
+const MapClickHandler = ({ onMapClick }) => {
+  useMapEvents({
+    click: async (e) => {
+      const { lat, lng } = e.latlng;
+      if (onMapClick) {
+        onMapClick(lat, lng);
+      }
+    },
+  });
+  return null;
+};
 
 // Helper controller component to manage map sizing, pan & zoom
 const MapController = ({ selectedLocation, userCoords, triggerReset }) => {
@@ -85,7 +99,6 @@ const createCustomMarkerIcon = (status, isSelected = false) => {
     iconHtml = `<span style="font-size: 10px; font-weight: 800;">!</span>`;
     size = isSelected ? 28 : 20;
   } else {
-    // Neutral dot for locations with insufficient / no recent data
     bgClass = isSelected ? 'bg-orange-500 text-white' : 'bg-zinc-500/80 text-white dark:bg-zinc-600/90';
     iconHtml = `<div class="w-1.5 h-1.5 rounded-full bg-white/90"></div>`;
     size = isSelected ? 26 : 16;
@@ -108,7 +121,25 @@ const createCustomMarkerIcon = (status, isSelected = false) => {
   });
 };
 
-// User GPS Location Marker (Distinct Cyan Dot with Radar Ring)
+// Map Click Picked Pin Marker
+const createMapClickIcon = () => {
+  return L.divIcon({
+    className: '',
+    html: `
+      <div class="relative flex items-center justify-center">
+        <span class="absolute w-8 h-8 rounded-full bg-orange-500/30 animate-ping"></span>
+        <div class="w-6 h-6 rounded-full bg-orange-500 border-2 border-white shadow-lg flex items-center justify-center text-white font-bold text-xs">
+          📍
+        </div>
+      </div>
+    `,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
+  });
+};
+
+// User GPS Location Marker (Cyan Dot with Radar Ring)
 const createUserLocationIcon = () => {
   return L.divIcon({
     className: '',
@@ -126,7 +157,7 @@ const createUserLocationIcon = () => {
   });
 };
 
-// Marker cluster layer with NO SPIDERWEB EXPLOSION on mobile
+// Marker cluster layer with smooth zooming
 const MarkerClusterWrapper = ({ locations, onSelectLocation, selectedLocation }) => {
   const map = useMap();
   const clusterGroupRef = useRef(null);
@@ -134,13 +165,12 @@ const MarkerClusterWrapper = ({ locations, onSelectLocation, selectedLocation })
   useEffect(() => {
     if (!map) return;
 
-    // Controlled clustering: smooth zoom into cluster instead of radial explosion
     const clusterGroup = L.markerClusterGroup({
       showCoverageOnHover: false,
-      maxClusterRadius: 40,
+      maxClusterRadius: 35, // Natural regional clustering
       spiderfyOnMaxZoom: false, // Prevents radial spiderweb explosion!
-      zoomToBoundsOnClick: true, // Smoothly zooms in
-      disableClusteringAtZoom: 13, // At zoom 13+, individual markers display cleanly
+      zoomToBoundsOnClick: true, // Smooth zoom to cluster bounds
+      disableClusteringAtZoom: 12, // Shows individual pins cleanly at street level
       iconCreateFunction: (cluster) => {
         const markers = cluster.getAllChildMarkers();
         let availableCount = 0;
@@ -209,9 +239,11 @@ export const BangladeshMap = ({
   activeFilter = 'all',
   triggerReset = 0,
   userCoords = null,
+  onMapClickLocation = null,
 }) => {
   const { t, isBn } = useLanguage();
   const { isDark } = useTheme();
+  const [clickedPoint, setClickedPoint] = useState(null);
 
   // Filter locations dynamically
   const filteredLocations = useMemo(() => {
@@ -224,9 +256,37 @@ export const BangladeshMap = ({
     return locations;
   }, [locations, activeFilter]);
 
+  // Reliable, 100% free tile layers without any API keys
   const tileLayerUrl = isDark
     ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  // Handle map click picking (Problem 5)
+  const handleMapClick = async (lat, lng) => {
+    try {
+      const resolved = await resolveGpsLocation(lat, lng, locations);
+      const mapLocation = {
+        _id: `map_${lat.toFixed(4)}_${lng.toFixed(4)}`,
+        nameBn: resolved?.nameBn || `ম্যাপ অবস্থান (${lat.toFixed(3)}, ${lng.toFixed(3)})`,
+        nameEn: resolved?.nameEn || `Map Pin (${lat.toFixed(3)}, ${lng.toFixed(3)})`,
+        district: resolved?.district || 'বাংলাদেশ',
+        districtBn: resolved?.districtBn || 'বাংলাদেশ',
+        division: resolved?.division || 'Dhaka',
+        divisionBn: resolved?.divisionBn || 'ঢাকা',
+        latitude: lat,
+        longitude: lng,
+        isMapClick: true,
+        isGpsCustom: true,
+      };
+
+      setClickedPoint(mapLocation);
+      if (onMapClickLocation) {
+        onMapClickLocation(mapLocation);
+      }
+    } catch (err) {
+      console.warn('Map click resolution error:', err);
+    }
+  };
 
   return (
     <div className="relative w-full h-full min-h-[420px] bg-stone-100 dark:bg-[#0a0a0b] select-none transition-colors">
@@ -244,7 +304,7 @@ export const BangladeshMap = ({
       >
         <TileLayer
           url={tileLayerUrl}
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           maxZoom={19}
         />
 
@@ -254,12 +314,47 @@ export const BangladeshMap = ({
           triggerReset={triggerReset}
         />
 
+        {/* Listen for map clicks */}
+        <MapClickHandler onMapClick={handleMapClick} />
+
         {/* Clustered Marker Layer */}
         <MarkerClusterWrapper
           locations={filteredLocations}
           onSelectLocation={onSelectLocation}
           selectedLocation={selectedLocation}
         />
+
+        {/* Map-Click Picked Location Marker (Problem 5) */}
+        {clickedPoint && (
+          <Marker
+            position={[clickedPoint.latitude, clickedPoint.longitude]}
+            icon={createMapClickIcon()}
+          >
+            <Popup className="custom-popup" autoPan={true}>
+              <div className="p-2 space-y-1.5 min-w-[180px] text-xs">
+                <div className="flex items-center gap-1 text-orange-600 font-extrabold">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>{isBn ? 'ম্যাপে চিহ্নিত এলাকা' : 'Pinned Map Location'}</span>
+                </div>
+                <div className="font-bold text-stone-900 text-xs">
+                  {isBn ? clickedPoint.nameBn : clickedPoint.nameEn}
+                </div>
+                <div className="text-[10px] text-stone-500">
+                  {isBn ? `${clickedPoint.districtBn} জেলা` : `${clickedPoint.district}`} &bull; ({clickedPoint.latitude.toFixed(3)}, {clickedPoint.longitude.toFixed(3)})
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onSelectLocation) onSelectLocation(clickedPoint);
+                  }}
+                  className="w-full py-1.5 px-2.5 rounded-lg bg-orange-500 text-white font-bold text-[11px] hover:bg-orange-600 transition-colors mt-1 shadow-xs"
+                >
+                  {isBn ? '🚀 এই অবস্থানে রিপোর্ট দিন' : 'Report at this Location'}
+                </button>
+              </div>
+            </Popup>
+          </Marker>
+        )}
 
         {/* User GPS Location Marker */}
         {userCoords && (
@@ -322,15 +417,15 @@ export const BangladeshMap = ({
       <div className="absolute bottom-4 left-4 z-20 pointer-events-auto bg-white/95 dark:bg-[#111214]/95 backdrop-blur-md px-3 py-2 rounded-xl border border-stone-200/90 dark:border-zinc-800 shadow-sm flex items-center gap-3 text-[10px] sm:text-xs font-semibold text-stone-700 dark:text-zinc-300">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20"></span>
-          <span>{t('statusYes')}</span>
+          <span>{t('statusYes') || 'আছে'}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-rose-500 ring-2 ring-rose-500/20"></span>
-          <span>{t('statusNo')}</span>
+          <span>{t('statusNo') || 'নেই'}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-stone-400 dark:bg-zinc-600"></span>
-          <span>{t('statusUncertain')}</span>
+          <span>{t('statusUncertain') || 'অনিশ্চিত'}</span>
         </div>
       </div>
     </div>

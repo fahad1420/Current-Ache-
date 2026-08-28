@@ -192,7 +192,7 @@ export default async function handler(req, res) {
       const body = await parseRequestBody(req);
       const { locationId, locationName, district, division, latitude, longitude, isGpsCustom, status, duration, locality, customMinutes } = body;
 
-      let matched = defaultLocations.find(l => l._id === locationId || l.slug === locationId);
+      let matched = defaultLocations.find(l => l._id === locationId || l.slug === locationId || (locationName && (l.nameBn === locationName || l.nameEn === locationName)));
 
       // If user reported from GPS coordinates outside existing 593:
       if (!matched && (isGpsCustom || (latitude && longitude))) {
