@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart3, Zap, PlugZap, Activity, AlertTriangle } from 'lucide-react';
 import { toBn } from '../utils/banglaDigits';
@@ -105,42 +105,55 @@ export const Stats = () => {
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-orange-500" />
           <h2 className="text-base sm:text-lg font-bold text-stone-900 dark:text-zinc-100">
-            {isBn ? 'সর্বাধিক লোডশেডিং/বিভ্রাটের রিপোর্ট পাওয়া এলাকা' : 'Areas with Most Outage Reports'}
+            {isBn ? 'সর্বাধিক লোডশেডিং/বিভ্রাটের রিপোর্ট পাওয়া জেলা' : 'Districts with Most Outage Reports'}
           </h2>
         </div>
 
         {stats?.topOutageAreas && stats.topOutageAreas.length > 0 ? (
           <div className="divide-y divide-stone-100 dark:divide-zinc-800">
-            {stats.topOutageAreas.map((item, idx) => (
-              <div
-                key={idx}
-                className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-              >
-                <div>
-                  <Link
-                    to={`/area/${item.location?.slug || item.location?._id}`}
-                    className="font-bold text-stone-900 dark:text-zinc-100 hover:text-orange-500 dark:hover:text-orange-400 transition-colors text-sm"
-                  >
-                    {isBn ? item.location?.nameBn : item.location?.nameEn}{' '}
-                    <span className="text-xs font-normal text-stone-400 dark:text-zinc-500">
-                      ({isBn ? item.location?.nameEn : item.location?.nameBn})
-                    </span>
-                  </Link>
-                  <div className="text-xs text-stone-500 dark:text-zinc-400">
-                    {isBn ? `${item.location?.divisionBn} বিভাগ • ${item.location?.districtBn} জেলা` : `${item.location?.district} • ${item.location?.division}`}
-                  </div>
-                </div>
+            {stats.topOutageAreas.map((item, idx) => {
+              const districtName = isBn
+                ? (item.districtBn || item.nameBn || item.location?.districtBn || item.location?.nameBn || 'জেলা')
+                : (item.districtEn || item.nameEn || item.location?.district || item.location?.nameEn || 'District');
+              const divisionName = isBn
+                ? (item.divisionBn || item.location?.divisionBn || '')
+                : (item.divisionEn || item.location?.division || '');
+              const count = item.outageReportsCount || item.reportsCount || 0;
 
-                <div className="flex items-center gap-3">
-                  <span className="px-2.5 py-0.5 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/60 rounded-full text-xs font-bold">
-                    {formatNumber(item.outageReportsCount)} {isBn ? 'টি বিভ্রাট রিপোর্ট' : 'outage reports'}
-                  </span>
-                  <div className="text-xs text-stone-400 dark:text-zinc-500">
-                    {getBanglaRelativeTime(item.lastOutageReport)}
+              return (
+                <div
+                  key={idx}
+                  className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-6 h-6 rounded-full bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 font-bold text-xs flex items-center justify-center shrink-0">
+                      {isBn ? toBn(idx + 1) : idx + 1}
+                    </span>
+                    <div>
+                      <div className="font-bold text-stone-900 dark:text-zinc-100 text-sm">
+                        {districtName} {isBn ? 'জেলা' : 'District'}
+                      </div>
+                      {divisionName && !divisionName.includes('undefined') && (
+                        <div className="text-xs text-stone-500 dark:text-zinc-400">
+                          {isBn ? `${divisionName} বিভাগ` : `${divisionName} Division`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/60 rounded-full text-xs font-bold">
+                      {formatNumber(count)} {isBn ? 'বার' : 'times'}
+                    </span>
+                    {item.lastOutageReport && (
+                      <div className="text-xs text-stone-400 dark:text-zinc-500">
+                        {getBanglaRelativeTime(item.lastOutageReport)}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="p-6 text-center text-stone-500 dark:text-zinc-400 text-xs bg-stone-50 dark:bg-[#111214]/60 rounded-xl">

@@ -470,10 +470,15 @@ export async function handleApiRequest(req, res) {
         return res.status(503).json({ success: false, message: 'ডাটাবেজ সংযোগ বিচ্ছিন্ন' });
       }
 
+      const page = parseInt(urlObj.searchParams.get('page') || '1', 10);
+      const limit = parseInt(urlObj.searchParams.get('limit') || '100', 10);
+      const skip = (page - 1) * limit;
+
       const total = await ReportModel.countDocuments({ isFlagged: { $ne: true } });
       const rawReports = await ReportModel.find({ isFlagged: { $ne: true } })
         .sort({ createdAt: -1 })
-        .limit(50)
+        .skip(skip)
+        .limit(limit)
         .lean();
 
       const allDbLocs = await LocationModel.find().lean();
@@ -538,6 +543,10 @@ export async function handleApiRequest(req, res) {
       return res.status(200).json({
         success: true,
         total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit) || 1,
+        hasMore: skip + rawReports.length < total,
         count: enriched.length,
         data: enriched,
       });
@@ -763,13 +772,28 @@ export async function handleApiRequest(req, res) {
         else insufficientSummary++;
       });
 
+      let totalReportsCount = 0;
+      let availableReportsCount = availableSummary;
+      let unavailableReportsCount = unavailableSummary;
+
+      if (db) {
+        try {
+          totalReportsCount = await ReportModel.countDocuments({ isFlagged: { $ne: true } });
+          availableReportsCount = await ReportModel.countDocuments({ isFlagged: { $ne: true }, status: 'available' });
+          unavailableReportsCount = await ReportModel.countDocuments({ isFlagged: { $ne: true }, status: 'unavailable' });
+        } catch (e) {}
+      }
+
       return res.status(200).json({
         success: true,
         count: defaultLocations.length,
         summary: {
           total: defaultLocations.length,
-          available: availableSummary,
-          unavailable: unavailableSummary,
+          totalReports: totalReportsCount,
+          available: availableReportsCount,
+          unavailable: unavailableReportsCount,
+          availableReports: availableReportsCount,
+          unavailableReports: unavailableReportsCount,
           insufficient: insufficientSummary,
         },
         data: defaultLocations,
@@ -875,6 +899,8 @@ export async function handleApiRequest(req, res) {
       }
 
       const totalReports = await ReportModel.countDocuments({ isFlagged: { $ne: true } });
+      const availableReportsCount = await ReportModel.countDocuments({ isFlagged: { $ne: true }, status: 'available' });
+      const unavailableReportsCount = await ReportModel.countDocuments({ isFlagged: { $ne: true }, status: 'unavailable' });
       const rawReportedLocs = await ReportModel.distinct('locationId', { isFlagged: { $ne: true } });
       const distinctReportedCount = rawReportedLocs.filter((id) => id && id !== 'unknown').length;
 
@@ -892,43 +918,94 @@ export async function handleApiRequest(req, res) {
         });
       }
 
-      let availableSummary = 0;
-      let unavailableSummary = 0;
-      defaultLocations.forEach((loc) => {
-        if (loc.status === 'available') availableSummary++;
-        else if (loc.status === 'unavailable') unavailableSummary++;
-      });
-
-      // Calculate dynamic top outage areas from real reports
+      // Calculate DISTRICT-BASED load-shedding ranking from all valid outage reports
       const outageReports = await ReportModel.find({
         isFlagged: { $ne: true },
         status: 'unavailable',
       }).lean();
-      const areaOutageCountMap = new Map();
-      outageReports.forEach((r) => {
-        const key =
-          typeof r.locationId === 'object' && r.locationId._id
-            ? String(r.locationId._id)
-            : String(r.locationId);
-        areaOutageCountMap.set(key, (areaOutageCountMap.get(key) || 0) + 1);
-      });
 
-      const topOutageAreas = [];
       const dbById = new Map(dbLocations.map((l) => [String(l._id), l]));
       const dbBySlug = new Map(dbLocations.map((l) => [l.slug, l]));
-      for (const [key, count] of areaOutageCountMap.entries()) {
-        const doc = dbById.get(key) || dbBySlug.get(key);
-        const staticLoc = defaultLocations.find((l) => l._id === key || l.slug === key);
-        if (doc || staticLoc) {
-          topOutageAreas.push({
-            nameBn: doc?.nameBn || staticLoc?.nameBn,
-            districtBn: doc?.districtBn || staticLoc?.districtBn,
-            reportsCount: count,
-            outageRate: Math.min(100, count * 20),
+      const dbByName = new Map(dbLocations.map((l) => [l.nameBn, l]));
+
+      const districtMap = new Map();
+
+      for (const rep of outageReports) {
+        const rawLocId =
+          typeof rep.locationId === 'object' && rep.locationId?._id
+            ? String(rep.locationId._id)
+            : String(rep.locationId);
+
+        let doc = dbById.get(rawLocId) || dbBySlug.get(rawLocId) || dbByName.get(rawLocId);
+        let staticLoc = defaultLocations.find(
+          (l) => l._id === rawLocId || l.slug === rawLocId || l.nameBn === rawLocId
+        );
+
+        if (doc && !staticLoc) {
+          staticLoc = defaultLocations.find((l) => l.slug === doc.slug || l.nameBn === doc.nameBn);
+        }
+        if (staticLoc && !doc) {
+          doc = dbBySlug.get(staticLoc.slug) || dbByName.get(staticLoc.nameBn);
+        }
+
+        let rawDistrict = doc?.districtBn || staticLoc?.districtBn || rep.district || '';
+        let rawDistrictEn = doc?.district || staticLoc?.district || rep.district || '';
+        let rawDivision = doc?.divisionBn || staticLoc?.divisionBn || rep.division || 'বাংলাদেশ';
+        let rawDivisionEn = doc?.division || staticLoc?.division || rep.division || 'Bangladesh';
+
+        // Clean up district name (e.g. remove trailing 'জেলা', trim)
+        let districtBn = rawDistrict.replace(/\s*জেলা$/, '').trim();
+        let districtEn = rawDistrictEn.replace(/\s*District$/i, '').trim();
+        let divisionBn = rawDivision.replace(/\s*বিভাগ$/, '').trim();
+        let divisionEn = rawDivisionEn.replace(/\s*Division$/i, '').trim();
+
+        if (districtBn === 'Meherpur') {
+          districtBn = 'মেহেরপুর';
+          districtEn = 'Meherpur';
+        }
+        if (!districtBn || districtBn === 'বাংলাদেশ' || districtBn.includes('undefined')) {
+          districtBn = 'ঢাকা';
+          districtEn = 'Dhaka';
+          divisionBn = 'ঢাকা';
+          divisionEn = 'Dhaka';
+        }
+
+        const key = districtBn;
+
+        if (!districtMap.has(key)) {
+          districtMap.set(key, {
+            nameBn: districtBn,
+            nameEn: districtEn,
+            districtBn,
+            districtEn,
+            divisionBn,
+            divisionEn,
+            outageReportsCount: 0,
+            reportsCount: 0,
+            lastOutageReport: rep.createdAt,
+            location: {
+              nameBn: districtBn,
+              nameEn: districtEn,
+              districtBn,
+              district: districtEn,
+              divisionBn,
+              division: divisionEn,
+              slug: doc?.slug || staticLoc?.slug || '',
+            },
           });
         }
+
+        const entry = districtMap.get(key);
+        entry.outageReportsCount += 1;
+        entry.reportsCount += 1;
+        if (new Date(rep.createdAt) > new Date(entry.lastOutageReport)) {
+          entry.lastOutageReport = rep.createdAt;
+        }
       }
-      topOutageAreas.sort((a, b) => b.reportsCount - a.reportsCount);
+
+      const topOutageDistricts = Array.from(districtMap.values()).sort(
+        (a, b) => b.outageReportsCount - a.outageReportsCount
+      );
 
       return res.status(200).json({
         success: true,
@@ -936,9 +1013,10 @@ export async function handleApiRequest(req, res) {
           totalReportsToday: totalReports,
           activeAreasCount: defaultLocations.length,
           reportedAreasCount: distinctReportedCount,
-          areasAvailableCount: availableSummary,
-          areasUnavailableCount: unavailableSummary,
-          topOutageAreas: topOutageAreas.slice(0, 5),
+          areasAvailableCount: availableReportsCount,
+          areasUnavailableCount: unavailableReportsCount,
+          topOutageAreas: topOutageDistricts.slice(0, 10),
+          topOutageDistricts: topOutageDistricts.slice(0, 10),
         },
       });
     }

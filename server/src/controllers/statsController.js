@@ -47,38 +47,79 @@ export const getNationwideStats = async (req, res, next) => {
       else if (s.status === 'mixed') areasMixedCount++;
     });
 
-    // Top affected outage locations
+    // Top affected outage locations aggregated by DISTRICT
     const topOutages = await ElectricityReport.aggregate([
       {
         $match: {
           status: 'unavailable',
           isFlagged: false,
-          createdAt: { $gte: fourHoursAgo }
+        }
+      },
+      {
+        $lookup: {
+          from: 'locations',
+          localField: 'locationId',
+          foreignField: '_id',
+          as: 'loc'
+        }
+      },
+      {
+        $unwind: {
+          path: '$loc',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          createdAt: 1,
+          districtBn: {
+            $ifNull: ['$loc.districtBn', { $ifNull: ['$district', 'ঢাকা'] }]
+          },
+          districtEn: {
+            $ifNull: ['$loc.district', { $ifNull: ['$district', 'Dhaka'] }]
+          },
+          divisionBn: {
+            $ifNull: ['$loc.divisionBn', { $ifNull: ['$division', 'ঢাকা'] }]
+          },
+          divisionEn: {
+            $ifNull: ['$loc.division', { $ifNull: ['$division', 'Dhaka'] }]
+          }
         }
       },
       {
         $group: {
-          _id: '$locationId',
+          _id: '$districtBn',
+          districtBn: { $first: '$districtBn' },
+          districtEn: { $first: '$districtEn' },
+          divisionBn: { $first: '$divisionBn' },
+          divisionEn: { $first: '$divisionEn' },
           outageReportsCount: { $sum: 1 },
           lastOutageReport: { $max: '$createdAt' }
         }
       },
       { $sort: { outageReportsCount: -1 } },
-      { $limit: 6 }
+      { $limit: 10 }
     ]);
 
-    const populatedTopOutages = await Location.populate(topOutages, {
-      path: '_id',
-      select: 'nameBn nameEn divisionBn districtBn slug'
-    });
-
-    const formattedTopOutages = populatedTopOutages
-      .filter(item => item._id)
-      .map(item => ({
-        location: item._id,
-        outageReportsCount: item.outageReportsCount,
-        lastOutageReport: item.lastOutageReport,
-      }));
+    const formattedTopOutages = topOutages.map(item => ({
+      nameBn: item.districtBn,
+      nameEn: item.districtEn,
+      districtBn: item.districtBn,
+      districtEn: item.districtEn,
+      divisionBn: item.divisionBn,
+      divisionEn: item.divisionEn,
+      outageReportsCount: item.outageReportsCount,
+      reportsCount: item.outageReportsCount,
+      lastOutageReport: item.lastOutageReport,
+      location: {
+        nameBn: item.districtBn,
+        nameEn: item.districtEn,
+        districtBn: item.districtBn,
+        district: item.districtEn,
+        divisionBn: item.divisionBn,
+        division: item.divisionEn
+      }
+    }));
 
     res.json({
       success: true,
@@ -90,6 +131,7 @@ export const getNationwideStats = async (req, res, next) => {
         areasUnavailableCount,
         areasMixedCount,
         topOutageAreas: formattedTopOutages,
+        topOutageDistricts: formattedTopOutages,
         timestamp: new Date(),
       },
     });
