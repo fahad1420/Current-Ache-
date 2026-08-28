@@ -157,8 +157,8 @@ export async function handleApiRequest(req, res) {
       }
     }
 
-    // 3. Admin Reports Inspection (GET /api/admin/reports or GET /api/admin)
-    if ((pathname === '/admin/reports' || pathname === '/admin') && req.method === 'GET') {
+    // 3. Admin Reports Inspection (GET /api/admin, /api/admin/reports, /api/admin?type=reports)
+    if (pathname.startsWith('/admin') && req.method === 'GET') {
       const page = parseInt(urlObj.searchParams.get('page') || '1', 10);
       const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
       const statusFilter = urlObj.searchParams.get('status');
@@ -514,9 +514,9 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 6A. Locations: Reported Areas for History Page (GET /api/locations/reported or GET /api/locations?type=reported)
+    // 6A. Locations: Reported Areas for History Page (GET /api/locations?type=reported or /api/locations/reported)
     const typeParam = urlObj.searchParams.get('type');
-    if (pathname === '/locations/reported' || (pathname.startsWith('/locations') && typeParam === 'reported')) {
+    if (pathname === '/locations/reported' || typeParam === 'reported') {
       let reportedLocIds = [];
       if (db) {
         try {
@@ -524,7 +524,6 @@ export async function handleApiRequest(req, res) {
         } catch (e) {}
       }
 
-      // If in fallback mode
       if (reportedLocIds.length === 0) {
         reportedLocIds = ['loc_1', 'loc_2', 'loc_91'];
       }
@@ -534,8 +533,7 @@ export async function handleApiRequest(req, res) {
         (l) => strIds.has(String(l._id)) || strIds.has(l.slug) || strIds.has(l.nameBn)
       );
 
-      // If empty, return popular sample
-      const finalReported = matchedReported.length > 0 ? matchedReported : defaultLocations.slice(0, 6);
+      const finalReported = matchedReported.length > 0 ? matchedReported : defaultLocations.slice(0, 8);
 
       return res.status(200).json({
         success: true,
@@ -544,9 +542,10 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 6B. Locations: Single Area History (GET /api/locations/:id/history)
-    if (pathname.includes('/history') && pathname.startsWith('/locations/')) {
-      const locId = pathname.replace('/locations/', '').replace('/history', '');
+    // 6B. Locations: Single Area History (GET /api/locations?history=loc_1 or GET /api/locations/:id/history)
+    const historyLocId = urlObj.searchParams.get('history') || (pathname.includes('/history') ? pathname.replace('/locations/', '').replace('/history', '') : null);
+    if (historyLocId) {
+      const locId = historyLocId;
       const matched = defaultLocations.find((l) => l._id === locId || l.slug === locId || l.nameBn === locId);
 
       let locReports = [];
@@ -684,10 +683,10 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 7. Schedules (GET /api/schedules, GET /api/schedules/location/:locId, POST, VOTE)
+    // 7. Schedules (GET /api/schedules, POST /api/schedules)
     if (pathname.startsWith('/schedules')) {
       if (req.method === 'GET') {
-        const locId = pathname.replace('/schedules/location/', '').replace('/schedules', '');
+        const locId = urlObj.searchParams.get('location') || pathname.replace('/schedules/location/', '').replace('/schedules', '');
         let scheds = [];
         if (db) {
           try {
@@ -720,8 +719,8 @@ export async function handleApiRequest(req, res) {
       }
 
       if (req.method === 'POST') {
-        if (pathname.includes('/vote')) {
-          const schId = pathname.replace('/schedules/', '').replace('/vote', '');
+        if (pathname.includes('/vote') || urlObj.searchParams.get('action') === 'vote') {
+          const schId = urlObj.searchParams.get('id') || pathname.replace('/schedules/', '').replace('/vote', '');
           const body = await parseRequestBody(req);
           if (db && mongoose.isValidObjectId(schId)) {
             const inc = body.vote === 'up' ? { upvotes: 1 } : { downvotes: 1 };
