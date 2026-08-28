@@ -187,26 +187,50 @@ export async function handleApiRequest(req, res) {
         total = fallbackReports.length;
       }
 
+      // Build location lookup map safely
+      let dbLocationsMap = new Map();
+      if (db) {
+        try {
+          const allDbLocs = await LocationModel.find().lean();
+          allDbLocs.forEach((l) => {
+            dbLocationsMap.set(String(l._id), l);
+            if (l.slug) dbLocationsMap.set(l.slug, l);
+            if (l.nameBn) dbLocationsMap.set(l.nameBn, l);
+          });
+        } catch (e) {}
+      }
+
       // Enrich location info for admin table
       const enriched = rawReports.map((r) => {
         let locObj = null;
         if (r.location && typeof r.location === 'object' && r.location.nameBn) {
           locObj = r.location;
-        } else if (r.locationId && typeof r.locationId === 'object' && r.locationId.nameBn) {
-          locObj = r.locationId;
         } else if (r.locationId) {
           const locStr = String(r.locationId);
-          const found = defaultLocations.find((l) => l._id === locStr || l.slug === locStr || l.nameBn === locStr);
-          if (found) {
+          const fromDb = dbLocationsMap.get(locStr);
+          if (fromDb) {
             locObj = {
-              _id: found._id,
-              nameBn: found.nameBn,
-              nameEn: found.nameEn,
-              districtBn: found.districtBn,
-              district: found.district,
-              divisionBn: found.divisionBn,
-              division: found.division,
+              _id: fromDb._id,
+              nameBn: fromDb.nameBn,
+              nameEn: fromDb.nameEn,
+              districtBn: fromDb.districtBn,
+              district: fromDb.district,
+              divisionBn: fromDb.divisionBn,
+              division: fromDb.division,
             };
+          } else {
+            const found = defaultLocations.find((l) => l._id === locStr || l.slug === locStr || l.nameBn === locStr);
+            if (found) {
+              locObj = {
+                _id: found._id,
+                nameBn: found.nameBn,
+                nameEn: found.nameEn,
+                districtBn: found.districtBn,
+                district: found.district,
+                divisionBn: found.divisionBn,
+                division: found.division,
+              };
+            }
           }
         }
         if (!locObj) {
@@ -416,22 +440,25 @@ export async function handleApiRequest(req, res) {
       });
     }
 
-    // 5. Reports: Recent ticker (GET /api/reports/recent or GET /api/reports)
+    // 5. Reports: Recent ticker / feed (GET /api/reports/recent or GET /api/reports)
     if (pathname.startsWith('/reports') && req.method === 'GET') {
       let rawReports = [];
+      let totalCount = 0;
+
       if (db) {
         try {
+          totalCount = await ReportModel.countDocuments({ isFlagged: { $ne: true } });
           rawReports = await ReportModel.find({ isFlagged: { $ne: true } })
             .sort({ createdAt: -1 })
-            .limit(30)
-            .populate('locationId')
+            .limit(50)
             .lean();
         } catch (e) {
           rawReports = fallbackReports;
+          totalCount = fallbackReports.length;
         }
-      }
-      if (!rawReports || rawReports.length === 0) {
+      } else {
         rawReports = fallbackReports;
+        totalCount = fallbackReports.length;
       }
 
       let dbLocationsMap = new Map();
@@ -441,6 +468,7 @@ export async function handleApiRequest(req, res) {
           allDbLocs.forEach((l) => {
             dbLocationsMap.set(String(l._id), l);
             if (l.slug) dbLocationsMap.set(l.slug, l);
+            if (l.nameBn) dbLocationsMap.set(l.nameBn, l);
           });
         } catch (e) {}
       }
@@ -449,17 +477,6 @@ export async function handleApiRequest(req, res) {
         let locObj = null;
         if (r.location && typeof r.location === 'object' && (r.location.nameBn || r.location.nameEn)) {
           locObj = r.location;
-        } else if (r.locationId && typeof r.locationId === 'object' && (r.locationId.nameBn || r.locationId.nameEn)) {
-          locObj = {
-            _id: r.locationId._id,
-            nameBn: r.locationId.nameBn,
-            nameEn: r.locationId.nameEn,
-            districtBn: r.locationId.districtBn,
-            district: r.locationId.district,
-            divisionBn: r.locationId.divisionBn,
-            division: r.locationId.division,
-            slug: r.locationId.slug,
-          };
         } else if (r.locationId) {
           const locStr = String(r.locationId);
           const fromDb = dbLocationsMap.get(locStr);
@@ -509,8 +526,9 @@ export async function handleApiRequest(req, res) {
 
       return res.status(200).json({
         success: true,
+        total: totalCount || enrichedReports.length,
         count: enrichedReports.length,
-        data: enrichedReports.slice(0, 20),
+        data: enrichedReports,
       });
     }
 
@@ -761,6 +779,20 @@ export async function handleApiRequest(req, res) {
           totalReports = await ReportModel.countDocuments({ isFlagged: { $ne: true } });
           const reportedLocs = await ReportModel.distinct('locationId', { isFlagged: { $ne: true } });
           distinctReportedCount = reportedLocs.length;
+
+          // Merge live DB statuses into locations
+          const dbLocations = await LocationModel.find({ isActive: true }).lean();
+          if (dbLocations && dbLocations.length > 0) {
+            const dbMap = new Map(dbLocations.map((l) => [l.slug || String(l._id), l]));
+            defaultLocations.forEach((loc) => {
+              const fromDb = dbMap.get(loc.slug) || dbMap.get(String(loc._id));
+              if (fromDb && fromDb.lastReportAt) {
+                loc.status = fromDb.status;
+                loc.lastReportAt = fromDb.lastReportAt;
+                loc.totalRecentReports = fromDb.totalRecentReports;
+              }
+            });
+          }
         } catch (e) {}
       }
       if (totalReports === 0) {
