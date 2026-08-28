@@ -1,24 +1,10 @@
-﻿import fs from 'fs';
+import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { connectToDatabase, LocationModel, ReportModel } from './_db.js';
 
-// Read verified official dataset
-let defaultLocations = [];
-try {
-  const locationsPath = path.join(process.cwd(), 'src', 'data', 'bangladeshLocations.json');
-  if (fs.existsSync(locationsPath)) {
-    defaultLocations = JSON.parse(fs.readFileSync(locationsPath, 'utf8'));
-  } else {
-    const altPath = path.join(process.cwd(), 'client', 'src', 'data', 'bangladeshLocations.json');
-    if (fs.existsSync(altPath)) {
-      defaultLocations = JSON.parse(fs.readFileSync(altPath, 'utf8'));
-    }
-  }
-} catch (e) {
-  defaultLocations = [];
-}
+import { defaultLocations } from './_locations.js';
 
 // Fallback in-memory reports if MongoDB is connecting
 let fallbackReports = [
