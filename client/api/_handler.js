@@ -700,9 +700,19 @@ export async function handleApiRequest(req, res) {
             division: resolved?.division || 'Dhaka',
             slug: resolved?.slug || '',
           },
+          currentStatus: locReports[0]?.status || resolved?.staticLoc?.status || 'available',
           reliability,
           periods,
           reports: locReports.slice(0, 30),
+          recentTimeline: locReports.slice(0, 10).map((r) => ({
+            id: String(r._id),
+            _id: String(r._id),
+            status: r.status,
+            duration: r.duration,
+            customMinutes: r.customMinutes,
+            locality: r.locality,
+            createdAt: r.createdAt,
+          })),
         },
       });
     }
